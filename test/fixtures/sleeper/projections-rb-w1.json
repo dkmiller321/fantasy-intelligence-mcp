@@ -34,11 +34,11 @@
    "rush_yd": 1.23
   },
   "category": "proj",
-  "last_modified": 1789075231334,
+  "last_modified": 1789081592215,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -64,8 +64,8 @@
   "team": "DEN",
   "player_id": "8208",
   "opponent": "KC",
-  "updated_at": 1789075231334,
   "game_id": "202610116",
+  "updated_at": 1789081592215,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -104,11 +104,11 @@
    "rush_yd": 13.59
   },
   "category": "proj",
-  "last_modified": 1789075231390,
+  "last_modified": 1789081592281,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -135,8 +135,8 @@
   "team": "KC",
   "player_id": "13337",
   "opponent": "DEN",
-  "updated_at": 1789075231390,
   "game_id": "202610116",
+  "updated_at": 1789081592281,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -174,11 +174,11 @@
    "rush_yd": 63.05
   },
   "category": "proj",
-  "last_modified": 1789075231396,
+  "last_modified": 1789081592285,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -204,8 +204,8 @@
   "team": "KC",
   "player_id": "8151",
   "opponent": "DEN",
-  "updated_at": 1789075231396,
   "game_id": "202610116",
+  "updated_at": 1789081592285,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -243,11 +243,11 @@
    "rush_yd": 49.04
   },
   "category": "proj",
-  "last_modified": 1789075231338,
+  "last_modified": 1789081592219,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -274,8 +274,8 @@
   "team": "DEN",
   "player_id": "6806",
   "opponent": "KC",
-  "updated_at": 1789075231338,
   "game_id": "202610116",
+  "updated_at": 1789081592219,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -314,11 +314,11 @@
    "rush_yd": 25.21
   },
   "category": "proj",
-  "last_modified": 1789075231340,
+  "last_modified": 1789081592222,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -345,8 +345,8 @@
   "team": "DEN",
   "player_id": "12489",
   "opponent": "KC",
-  "updated_at": 1789075231340,
   "game_id": "202610116",
+  "updated_at": 1789081592222,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -387,11 +387,11 @@
    "rush_yd": 2.51
   },
   "category": "proj",
-  "last_modified": 1789075231392,
+  "last_modified": 1789081592283,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -418,8 +418,8 @@
   "team": "KC",
   "player_id": "12455",
   "opponent": "DEN",
-  "updated_at": 1789075231392,
   "game_id": "202610116",
+  "updated_at": 1789081592283,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -458,11 +458,11 @@
    "rush_yd": 8.63
   },
   "category": "proj",
-  "last_modified": 1789075231336,
+  "last_modified": 1789081592217,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -488,8 +488,8 @@
   "team": "DEN",
   "player_id": "13345",
   "opponent": "KC",
-  "updated_at": 1789075231336,
   "game_id": "202610116",
+  "updated_at": 1789081592217,
   "week_shard": "1_3",
   "company": "rotowire"
  },
@@ -527,11 +527,11 @@
    "rush_yd": 85.58
   },
   "category": "proj",
-  "last_modified": 1789075231198,
+  "last_modified": 1789081592076,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -557,8 +557,8 @@
   "team": "ATL",
   "player_id": "9509",
   "opponent": "PIT",
-  "updated_at": 1789075231198,
   "game_id": "202610128",
+  "updated_at": 1789081592076,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -596,11 +596,11 @@
    "rush_yd": 80.07
   },
   "category": "proj",
-  "last_modified": 1789075231117,
+  "last_modified": 1789081591982,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -626,8 +626,8 @@
   "team": "DET",
   "player_id": "9221",
   "opponent": "NO",
-  "updated_at": 1789075231117,
   "game_id": "202610111",
+  "updated_at": 1789081591982,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -666,11 +666,11 @@
    "rush_yd": 60.31
   },
   "category": "proj",
-  "last_modified": 1789075231246,
+  "last_modified": 1789081592125,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -696,8 +696,8 @@
   "team": "PIT",
   "player_id": "8228",
   "opponent": "ATL",
-  "updated_at": 1789075231246,
   "game_id": "202610128",
+  "updated_at": 1789081592125,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -735,11 +735,11 @@
    "rush_yd": 91.23
   },
   "category": "proj",
-  "last_modified": 1789075231327,
+  "last_modified": 1789081592199,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -765,8 +765,8 @@
   "team": "DAL",
   "player_id": "7588",
   "opponent": "NYG",
-  "updated_at": 1789075231327,
   "game_id": "202610123",
+  "updated_at": 1789081592199,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -805,11 +805,11 @@
    "rush_yd": 33.95
   },
   "category": "proj",
-  "last_modified": 1789075231036,
+  "last_modified": 1789081591911,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -835,8 +835,8 @@
   "team": "TB",
   "player_id": "7567",
   "opponent": "CIN",
-  "updated_at": 1789075231036,
   "game_id": "202610107",
+  "updated_at": 1789081591911,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -874,11 +874,11 @@
    "rush_yd": 60.75
   },
   "category": "proj",
-  "last_modified": 1789075231173,
+  "last_modified": 1789081592048,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -904,8 +904,8 @@
   "team": "NO",
   "player_id": "7543",
   "opponent": "DET",
-  "updated_at": 1789075231173,
   "game_id": "202610111",
+  "updated_at": 1789081592048,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -943,11 +943,11 @@
    "rush_yd": 21.96
   },
   "category": "proj",
-  "last_modified": 1789075231384,
+  "last_modified": 1789081592256,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -973,8 +973,8 @@
   "team": "NYG",
   "player_id": "7528",
   "opponent": "DAL",
-  "updated_at": 1789075231384,
   "game_id": "202610123",
+  "updated_at": 1789081592256,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1013,11 +1013,11 @@
    "rush_yd": 57.44
   },
   "category": "proj",
-  "last_modified": 1789075231248,
+  "last_modified": 1789081592127,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1043,8 +1043,8 @@
   "team": "PIT",
   "player_id": "7021",
   "opponent": "ATL",
-  "updated_at": 1789075231248,
   "game_id": "202610128",
+  "updated_at": 1789081592127,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1082,11 +1082,11 @@
    "rush_yd": 63.63
   },
   "category": "proj",
-  "last_modified": 1789075231254,
+  "last_modified": 1789081592141,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1112,8 +1112,8 @@
   "team": "CHI",
   "player_id": "6790",
   "opponent": "CAR",
-  "updated_at": 1789075231254,
   "game_id": "202610105",
+  "updated_at": 1789081592141,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1151,11 +1151,11 @@
    "rush_yd": 12.87
   },
   "category": "proj",
-  "last_modified": 1789075230973,
+  "last_modified": 1789081591841,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1181,8 +1181,8 @@
   "team": "BAL",
   "player_id": "5995",
   "opponent": "IND",
-  "updated_at": 1789075230973,
   "game_id": "202610114",
+  "updated_at": 1789081591841,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1220,11 +1220,11 @@
    "rush_yd": 33.83
   },
   "category": "proj",
-  "last_modified": 1789075231282,
+  "last_modified": 1789081592164,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1252,8 +1252,8 @@
   "team": "MIN",
   "player_id": "4199",
   "opponent": "GB",
-  "updated_at": 1789075231282,
   "game_id": "202610120",
+  "updated_at": 1789081592164,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1291,11 +1291,11 @@
    "rush_yd": 80.23
   },
   "category": "proj",
-  "last_modified": 1789075230971,
+  "last_modified": 1789081591839,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1321,8 +1321,8 @@
   "team": "BAL",
   "player_id": "3198",
   "opponent": "IND",
-  "updated_at": 1789075230971,
   "game_id": "202610114",
+  "updated_at": 1789081591839,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1361,11 +1361,11 @@
    "rush_yd": 3.72
   },
   "category": "proj",
-  "last_modified": 1789075230970,
+  "last_modified": 1789081591837,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1392,8 +1392,8 @@
   "team": "CIN",
   "player_id": "12543",
   "opponent": "TB",
-  "updated_at": 1789075230970,
   "game_id": "202610107",
+  "updated_at": 1789081591837,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1431,11 +1431,11 @@
    "rush_yd": 33.99
   },
   "category": "proj",
-  "last_modified": 1789075231253,
+  "last_modified": 1789081592139,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1462,8 +1462,8 @@
   "team": "CHI",
   "player_id": "12534",
   "opponent": "CAR",
-  "updated_at": 1789075231253,
   "game_id": "202610105",
+  "updated_at": 1789081592139,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1501,11 +1501,11 @@
    "rush_yd": 42.45
   },
   "category": "proj",
-  "last_modified": 1789075231225,
+  "last_modified": 1789081592104,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1531,8 +1531,8 @@
   "team": "GB",
   "player_id": "11581",
   "opponent": "MIN",
-  "updated_at": 1789075231225,
   "game_id": "202610120",
+  "updated_at": 1789081592104,
   "week_shard": "1_0",
   "company": "rotowire"
  },
@@ -1571,11 +1571,11 @@
    "rush_yd": 6.63
   },
   "category": "proj",
-  "last_modified": 1789075231169,
+  "last_modified": 1789081592042,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1603,8 +1603,8 @@
   "team": "NO",
   "player_id": "9757",
   "opponent": "DET",
-  "updated_at": 1789075231169,
   "game_id": "202610111",
+  "updated_at": 1789081592042,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -1643,11 +1643,11 @@
    "rush_yd": 21.7
   },
   "category": "proj",
-  "last_modified": 1789075231040,
+  "last_modified": 1789081591914,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1663,7 +1663,7 @@
     "genius_id": "1408290",
     "rookie_year": "2023"
    },
-   "news_updated": 1789072822092,
+   "news_updated": 1789077328399,
    "position": "RB",
    "team": "TB",
    "team_abbr": null,
@@ -1673,8 +1673,8 @@
   "team": "TB",
   "player_id": "9506",
   "opponent": "CIN",
-  "updated_at": 1789075231040,
   "game_id": "202610107",
+  "updated_at": 1789081591914,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -1713,11 +1713,11 @@
    "rush_yd": 55.34
   },
   "category": "proj",
-  "last_modified": 1789075231201,
+  "last_modified": 1789081592078,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1745,8 +1745,8 @@
   "team": "CAR",
   "player_id": "7594",
   "opponent": "CHI",
-  "updated_at": 1789075231201,
   "game_id": "202610105",
+  "updated_at": 1789081592078,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -1760,11 +1760,11 @@
    "pos_adp_dd_ppr": 102
   },
   "category": "proj",
-  "last_modified": 1789075231098,
+  "last_modified": 1789081591967,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1790,8 +1790,8 @@
   "team": "BUF",
   "player_id": "6039",
   "opponent": "HOU",
-  "updated_at": 1789075231098,
   "game_id": "202610113",
+  "updated_at": 1789081591967,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -1829,11 +1829,11 @@
    "rush_yd": 12.65
   },
   "category": "proj",
-  "last_modified": 1789075231167,
+  "last_modified": 1789081592041,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1859,8 +1859,8 @@
   "team": "NO",
   "player_id": "4035",
   "opponent": "DET",
-  "updated_at": 1789075231167,
   "game_id": "202610111",
+  "updated_at": 1789081592041,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -1899,11 +1899,11 @@
    "rush_yd": 0.73
   },
   "category": "proj",
-  "last_modified": 1789075231173,
+  "last_modified": 1789081592042,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1929,8 +1929,8 @@
   "team": "JAX",
   "player_id": "2359",
   "opponent": "CLE",
-  "updated_at": 1789075231173,
   "game_id": "202610115",
+  "updated_at": 1789081592042,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -1969,11 +1969,11 @@
    "rush_yd": 4.96
   },
   "category": "proj",
-  "last_modified": 1789075231175,
+  "last_modified": 1789081592044,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -1990,7 +1990,7 @@
     "rookie_year": "2025",
     "source_id": "0bcf17c0-89da-11ec-846d-43cbfaabacfd"
    },
-   "news_updated": 1789072522710,
+   "news_updated": 1789077628063,
    "position": "RB",
    "team": "JAX",
    "team_abbr": null,
@@ -2000,8 +2000,8 @@
   "team": "JAX",
   "player_id": "12544",
   "opponent": "CLE",
-  "updated_at": 1789075231175,
   "game_id": "202610115",
+  "updated_at": 1789081592044,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -2039,11 +2039,11 @@
    "rush_yd": 73.52
   },
   "category": "proj",
-  "last_modified": 1789075231354,
+  "last_modified": 1789081592240,
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -2072,8 +2072,8 @@
   "team": "LAC",
   "player_id": "12507",
   "opponent": "ARI",
-  "updated_at": 1789075231354,
   "game_id": "202610129",
+  "updated_at": 1789081592240,
   "week_shard": "1_1",
   "company": "rotowire"
  },
@@ -2084,9 +2084,9 @@
   },
   "category": "proj",
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -2120,9 +2120,9 @@
   },
   "category": "proj",
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -2156,9 +2156,9 @@
   },
   "category": "proj",
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -2193,9 +2193,9 @@
   },
   "category": "proj",
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"
@@ -2229,9 +2229,9 @@
   },
   "category": "proj",
   "week": 1,
-  "season": "2026",
-  "season_type": "regular",
   "sport": "nfl",
+  "season_type": "regular",
+  "season": "2026",
   "player": {
    "fantasy_positions": [
     "RB"

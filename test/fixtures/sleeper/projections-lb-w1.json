@@ -19,7 +19,7 @@
    "pts_std": 0.15
   },
   "category": "proj",
-  "last_modified": 1789075231374,
+  "last_modified": 1789081592258,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -49,7 +49,7 @@
   "team": "DEN",
   "player_id": "6977",
   "opponent": "KC",
-  "updated_at": 1789075231374,
+  "updated_at": 1789081592258,
   "game_id": "202610116",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -74,7 +74,7 @@
    "pts_std": 0.76
   },
   "category": "proj",
-  "last_modified": 1789075231368,
+  "last_modified": 1789081592254,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -105,7 +105,7 @@
   "team": "DEN",
   "player_id": "8280",
   "opponent": "KC",
-  "updated_at": 1789075231368,
+  "updated_at": 1789081592254,
   "game_id": "202610116",
   "week_shard": "1_1",
   "company": "rotowire"
@@ -130,7 +130,7 @@
    "pts_std": 0.16
   },
   "category": "proj",
-  "last_modified": 1789075231375,
+  "last_modified": 1789081592261,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -160,7 +160,7 @@
   "team": "DEN",
   "player_id": "2617",
   "opponent": "KC",
-  "updated_at": 1789075231375,
+  "updated_at": 1789081592261,
   "game_id": "202610116",
   "week_shard": "1_1",
   "company": "rotowire"
@@ -187,7 +187,7 @@
    "pts_std": 0.28
   },
   "category": "proj",
-  "last_modified": 1789075231426,
+  "last_modified": 1789081592319,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -217,7 +217,7 @@
   "team": "KC",
   "player_id": "7648",
   "opponent": "DEN",
-  "updated_at": 1789075231426,
+  "updated_at": 1789081592319,
   "game_id": "202610116",
   "week_shard": "1_2",
   "company": "rotowire"
@@ -243,7 +243,7 @@
    "pts_std": 0.41
   },
   "category": "proj",
-  "last_modified": 1789075231371,
+  "last_modified": 1789081592256,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -274,7 +274,7 @@
   "team": "DEN",
   "player_id": "7765",
   "opponent": "KC",
-  "updated_at": 1789075231371,
+  "updated_at": 1789081592256,
   "game_id": "202610116",
   "week_shard": "1_3",
   "company": "rotowire"
@@ -301,7 +301,7 @@
    "pts_std": 0.34
   },
   "category": "proj",
-  "last_modified": 1789075231427,
+  "last_modified": 1789081592317,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -331,7 +331,7 @@
   "team": "KC",
   "player_id": "6141",
   "opponent": "DEN",
-  "updated_at": 1789075231427,
+  "updated_at": 1789081592317,
   "game_id": "202610116",
   "week_shard": "1_5",
   "company": "rotowire"
@@ -356,7 +356,7 @@
    "pts_std": 0.21
   },
   "category": "proj",
-  "last_modified": 1789075231210,
+  "last_modified": 1789081592078,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -387,7 +387,7 @@
   "team": "TEN",
   "player_id": "8398",
   "opponent": "NYJ",
-  "updated_at": 1789075231210,
+  "updated_at": 1789081592078,
   "game_id": "202610134",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -415,7 +415,7 @@
    "pts_std": 0.31
   },
   "category": "proj",
-  "last_modified": 1789075231224,
+  "last_modified": 1789081592103,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -445,7 +445,7 @@
   "team": "ATL",
   "player_id": "7677",
   "opponent": "PIT",
-  "updated_at": 1789075231224,
+  "updated_at": 1789081592103,
   "game_id": "202610128",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -472,7 +472,7 @@
    "pts_std": 0.31
   },
   "category": "proj",
-  "last_modified": 1789075231390,
+  "last_modified": 1789081592278,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -502,7 +502,7 @@
   "team": "LAC",
   "player_id": "6941",
   "opponent": "ARI",
-  "updated_at": 1789075231390,
+  "updated_at": 1789081592278,
   "game_id": "202610129",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -528,7 +528,7 @@
    "pts_std": 0.49
   },
   "category": "proj",
-  "last_modified": 1789075231264,
+  "last_modified": 1789081592136,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -559,7 +559,7 @@
   "team": "PHI",
   "player_id": "6900",
   "opponent": "WAS",
-  "updated_at": 1789075231264,
+  "updated_at": 1789081592136,
   "game_id": "202610126",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -585,7 +585,7 @@
    "pts_std": 0.11
   },
   "category": "proj",
-  "last_modified": 1789075231272,
+  "last_modified": 1789081592152,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -615,7 +615,7 @@
   "team": "PIT",
   "player_id": "6220",
   "opponent": "ATL",
-  "updated_at": 1789075231272,
+  "updated_at": 1789081592152,
   "game_id": "202610128",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -640,7 +640,7 @@
    "pts_std": 0.06
   },
   "category": "proj",
-  "last_modified": 1789075231183,
+  "last_modified": 1789081592053,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -670,7 +670,7 @@
   "team": "HOU",
   "player_id": "6218",
   "opponent": "BUF",
-  "updated_at": 1789075231183,
+  "updated_at": 1789081592053,
   "game_id": "202610113",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -697,7 +697,7 @@
    "pts_std": 0.72
   },
   "category": "proj",
-  "last_modified": 1789075231117,
+  "last_modified": 1789081591990,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -730,7 +730,7 @@
   "team": "BUF",
   "player_id": "4967",
   "opponent": "HOU",
-  "updated_at": 1789075231117,
+  "updated_at": 1789081591990,
   "game_id": "202610113",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -755,7 +755,7 @@
    "pts_std": 0.15
   },
   "category": "proj",
-  "last_modified": 1789075231388,
+  "last_modified": 1789081592276,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -786,7 +786,7 @@
   "team": "LAC",
   "player_id": "2327",
   "opponent": "ARI",
-  "updated_at": 1789075231388,
+  "updated_at": 1789081592276,
   "game_id": "202610129",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -818,7 +818,7 @@
    "rush_yd": 0.23
   },
   "category": "proj",
-  "last_modified": 1789075231398,
+  "last_modified": 1789081592291,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -847,7 +847,7 @@
   "team": "MIA",
   "player_id": "14026",
   "opponent": "LV",
-  "updated_at": 1789075231398,
+  "updated_at": 1789081592291,
   "game_id": "202610125",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -873,7 +873,7 @@
    "pts_std": 0.28
   },
   "category": "proj",
-  "last_modified": 1789075231155,
+  "last_modified": 1789081592022,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -904,7 +904,7 @@
   "team": "CLE",
   "player_id": "12578",
   "opponent": "JAX",
-  "updated_at": 1789075231155,
+  "updated_at": 1789081592022,
   "game_id": "202610115",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -929,7 +929,7 @@
    "pts_std": 0.36
   },
   "category": "proj",
-  "last_modified": 1789075231032,
+  "last_modified": 1789081591900,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -961,7 +961,7 @@
   "team": "BAL",
   "player_id": "12571",
   "opponent": "IND",
-  "updated_at": 1789075231032,
+  "updated_at": 1789081591900,
   "game_id": "202610114",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -986,7 +986,7 @@
    "pts_std": 0.05
   },
   "category": "proj",
-  "last_modified": 1789075231226,
+  "last_modified": 1789081592105,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1016,7 +1016,7 @@
   "team": "ATL",
   "player_id": "11770",
   "opponent": "PIT",
-  "updated_at": 1789075231226,
+  "updated_at": 1789081592105,
   "game_id": "202610128",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -1043,7 +1043,7 @@
    "pts_std": 0.32
   },
   "category": "proj",
-  "last_modified": 1789075231278,
+  "last_modified": 1789081592158,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1073,7 +1073,7 @@
   "team": "PIT",
   "player_id": "11727",
   "opponent": "ATL",
-  "updated_at": 1789075231278,
+  "updated_at": 1789081592158,
   "game_id": "202610128",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -1103,7 +1103,7 @@
    "pts_std": 0.72
   },
   "category": "proj",
-  "last_modified": 1789075231265,
+  "last_modified": 1789081592137,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1134,7 +1134,7 @@
   "team": "PHI",
   "player_id": "11703",
   "opponent": "WAS",
-  "updated_at": 1789075231265,
+  "updated_at": 1789081592137,
   "game_id": "202610126",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -1161,7 +1161,7 @@
    "pts_std": 0.34
   },
   "category": "proj",
-  "last_modified": 1789075231262,
+  "last_modified": 1789081592142,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1191,7 +1191,7 @@
   "team": "GB",
   "player_id": "11687",
   "opponent": "MIN",
-  "updated_at": 1789075231262,
+  "updated_at": 1789081592142,
   "game_id": "202610120",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -1217,7 +1217,7 @@
    "pts_std": 0.17
   },
   "category": "proj",
-  "last_modified": 1789075231355,
+  "last_modified": 1789081592227,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1247,7 +1247,7 @@
   "team": "DAL",
   "player_id": "11017",
   "opponent": "NYG",
-  "updated_at": 1789075231355,
+  "updated_at": 1789081592227,
   "game_id": "202610123",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -1272,7 +1272,7 @@
    "pts_std": 0.21
   },
   "category": "proj",
-  "last_modified": 1789075231030,
+  "last_modified": 1789081591897,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1303,7 +1303,7 @@
   "team": "BAL",
   "player_id": "10944",
   "opponent": "IND",
-  "updated_at": 1789075231030,
+  "updated_at": 1789081591897,
   "game_id": "202610114",
   "week_shard": "1_0",
   "company": "rotowire"
@@ -1329,7 +1329,7 @@
    "pts_std": 0.4
   },
   "category": "proj",
-  "last_modified": 1789075231271,
+  "last_modified": 1789081592150,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1360,7 +1360,7 @@
   "team": "PIT",
   "player_id": "7113",
   "opponent": "ATL",
-  "updated_at": 1789075231271,
+  "updated_at": 1789081592150,
   "game_id": "202610128",
   "week_shard": "1_1",
   "company": "rotowire"
@@ -1386,7 +1386,7 @@
    "pts_std": 0.42
   },
   "category": "proj",
-  "last_modified": 1789075231382,
+  "last_modified": 1789081592274,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1417,7 +1417,7 @@
   "team": "MIA",
   "player_id": "6921",
   "opponent": "LV",
-  "updated_at": 1789075231382,
+  "updated_at": 1789081592274,
   "game_id": "202610125",
   "week_shard": "1_1",
   "company": "rotowire"
@@ -1443,7 +1443,7 @@
    "pts_std": 0.37
   },
   "category": "proj",
-  "last_modified": 1789075231144,
+  "last_modified": 1789081592015,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1474,7 +1474,7 @@
   "team": "DET",
   "player_id": "6868",
   "opponent": "NO",
-  "updated_at": 1789075231144,
+  "updated_at": 1789081592015,
   "game_id": "202610111",
   "week_shard": "1_1",
   "company": "rotowire"
@@ -1504,7 +1504,7 @@
    "pts_std": 0.49
   },
   "category": "proj",
-  "last_modified": 1789075231268,
+  "last_modified": 1789081592141,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1534,7 +1534,7 @@
   "team": "PHI",
   "player_id": "6815",
   "opponent": "WAS",
-  "updated_at": 1789075231268,
+  "updated_at": 1789081592141,
   "game_id": "202610126",
   "week_shard": "1_1",
   "company": "rotowire"
@@ -1562,7 +1562,7 @@
    "pts_std": 0.32
   },
   "category": "proj",
-  "last_modified": 1789075231277,
+  "last_modified": 1789081592156,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1592,7 +1592,7 @@
   "team": "PIT",
   "player_id": "6807",
   "opponent": "ATL",
-  "updated_at": 1789075231277,
+  "updated_at": 1789081592156,
   "game_id": "202610128",
   "week_shard": "1_1",
   "company": "rotowire"
@@ -1619,7 +1619,7 @@
    "pts_std": 0.22
   },
   "category": "proj",
-  "last_modified": 1789075231187,
+  "last_modified": 1789081592057,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1649,7 +1649,7 @@
   "team": "HOU",
   "player_id": "6485",
   "opponent": "BUF",
-  "updated_at": 1789075231187,
+  "updated_at": 1789081592057,
   "game_id": "202610113",
   "week_shard": "1_1",
   "company": "rotowire"
@@ -1678,7 +1678,7 @@
    "pts_std": 0.36
   },
   "category": "proj",
-  "last_modified": 1789075231191,
+  "last_modified": 1789081592071,
   "week": 1,
   "sport": "nfl",
   "season_type": "regular",
@@ -1708,7 +1708,7 @@
   "team": "NO",
   "player_id": "6302",
   "opponent": "DET",
-  "updated_at": 1789075231191,
+  "updated_at": 1789081592071,
   "game_id": "202610111",
   "week_shard": "1_1",
   "company": "rotowire"
