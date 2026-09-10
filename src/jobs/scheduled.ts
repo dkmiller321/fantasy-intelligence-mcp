@@ -4,28 +4,25 @@ import { syncNews } from "./sync-news";
 import { syncWeather } from "./sync-weather";
 
 /**
- * One dispatcher keyed on the cron string (SPEC section 9). Only small payloads run
- * here: the free plan allows 10 ms of CPU per cron invocation, so players/nfl and the
- * nflverse files run in GitHub Actions instead (DECISIONS D13).
+ * One dispatcher keyed on the cron string (SPEC section 9).
+ *
+ * Only jobs whose payloads fit in 10 ms of CPU live here. The player list, projections,
+ * nflverse stats and the weekly recompute all run in GitHub Actions instead, because
+ * their inputs are megabytes (DECISIONS D13). Adding a heavy job here would fail
+ * silently every night, so this table is deliberately short rather than aspirational.
  */
 export async function runScheduled(cron: string, env: Env, now: Date): Promise<void> {
-  const ingest = new IngestRepo(env.DB);
-
   const jobs: Record<string, { name: string; run: () => Promise<number> }> = {
-    // Every 15 minutes: breaking news.
+    // Three small RSS documents and one batched write.
     "*/15 * * * *": { name: "news-rss", run: () => syncNews(env, now) },
-    // Every 6 hours: weather forecasts for upcoming outdoor games. Betting lines
-    // arrive with the nflverse schedule ETL, so no odds provider is needed (D14).
+    // Every upcoming outdoor game in a single Open-Meteo request.
     "0 */6 * * *": { name: "weather", run: () => syncWeather(env, now) },
-    // Daily: projections for the current week.
-    "0 9 * * *": { name: "projections", run: () => Promise.resolve(0) },
-    // Tuesday, after the nflverse ETL lands.
-    "0 6 * * 2": { name: "recompute", run: () => Promise.resolve(0) },
   };
 
   const job = jobs[cron];
   if (!job) return;
 
+  const ingest = new IngestRepo(env.DB);
   const id = await ingest.start(job.name, now.toISOString());
   try {
     const rows = await job.run();

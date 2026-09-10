@@ -218,3 +218,24 @@ meaningful free agents falls back to an explicit floor rather than to zero.
 The lesson generalizes: any "top N" over a mixed-position pool is really a quarterback
 filter, and any cross-position comparison has to be made in units of value over
 replacement.
+
+## D18 — The FantasyPros adapter is not written, because it cannot be verified
+The plan was to write the FantasyPros and Odds adapters with fixtures and tests but leave
+them dark behind key checks. The Odds adapter turned out to be unnecessary (D14). The
+FantasyPros adapter is genuinely blocked: its partner API requires an approved key, and
+SPEC section 5 is explicit that an adapter must be written from a recorded real response,
+never from remembered field names. Without a key there is no response to record, so any
+adapter written now would be a guess wearing tests.
+
+What exists instead is the seam. `src/providers/sleeper/projections.ts` implements the
+projection source behind a small interface, `CONFIG.sourceWeights` already carries
+`fantasypros: 0.6`, and `consensusProjection` blends any number of sources. Adding
+FantasyPros later means recording fixtures and writing one file; nothing else changes,
+and confidence stops being capped at 0.7 automatically once a second source appears.
+
+## D19 — Worker crons carry only the two jobs that fit
+The cron table listed four triggers, two of which (`projections`, `recompute`) were
+placeholders returning zero. Left in place they would have looked scheduled while doing
+nothing every night. They now run in `.github/workflows/daily.yml` alongside the player
+sync, with a `concurrency` group so two runs cannot race and exhaust D1's daily write
+allowance. The Worker keeps only news and weather, whose payloads genuinely fit.

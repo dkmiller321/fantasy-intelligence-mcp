@@ -1,0 +1,44 @@
+name: Daily refresh
+
+# Player list, injury designations and projections. These parse payloads far larger than
+# a Worker's 10 ms CPU allowance, so they run here rather than on a cron trigger
+# (docs/DECISIONS.md D13).
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+# One run at a time: a full load is a large share of D1's 100,000 daily row writes, and
+# two concurrent runs would exhaust it (docs/DECISIONS.md D15).
+concurrency:
+  group: d1-writes
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Sync players and injury designations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run sync:players -- --remote
+
+      - name: Sync projections for the current week
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run sync:projections -- --remote
+
+      - name: Recompute matchup grades and usage trends
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run materialize -- --remote

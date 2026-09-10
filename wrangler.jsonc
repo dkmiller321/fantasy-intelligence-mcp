@@ -17,6 +17,8 @@
     "DEFAULT_LEAGUE_ID": "1340893699625717760"
   },
   "triggers": {
-    "crons": ["*/15 * * * *", "0 */6 * * *", "0 9 * * *", "0 6 * * 2"]
+    // Only jobs that fit the free plan's 10 ms CPU per trigger. The heavy
+    // ingests run in GitHub Actions (docs/DECISIONS.md D13).
+    "crons": ["*/15 * * * *", "0 */6 * * *"]
   }
 }
