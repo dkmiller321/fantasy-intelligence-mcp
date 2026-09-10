@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import type { ToolContext } from "../server";
+import type { ToolContext } from "../context";
 
 export function registerPing(server: McpServer, ctx: ToolContext): void {
   server.registerTool(

@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { degraded, envelope, toolResult } from "../envelope";
-import type { ToolContext } from "../server";
+import { safeHandler } from "../safe";
+import type { ToolContext } from "../context";
 
 interface NflStateData {
   season: number;
@@ -21,7 +22,7 @@ export function registerNflState(server: McpServer, ctx: ToolContext): void {
       inputSchema: {},
       annotations: { readOnlyHint: true },
     },
-    async () => {
+    safeHandler("get_nfl_state", ctx.now, async () => {
       const now = ctx.now();
       try {
         const s = await ctx.sleeper.getNflState();
@@ -52,6 +53,6 @@ export function registerNflState(server: McpServer, ctx: ToolContext): void {
           failure: `Sleeper's season-state endpoint is unreachable (${reason}). Retry shortly.`,
         });
       }
-    },
+    }),
   );
 }

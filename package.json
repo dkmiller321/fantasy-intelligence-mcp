@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check .",
@@ -15,7 +15,8 @@
     "db:migrate:local": "wrangler d1 migrations apply fantasy --local",
     "etl": "tsx scripts/nflverse-etl.ts",
     "fixtures": "tsx scripts/refresh-fixtures.ts",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "sync:players": "tsx scripts/sync-players.ts"
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^0.10.3",
@@ -27,6 +28,7 @@
     "@biomejs/biome": "^2.5.13",
     "@cloudflare/vitest-pool-workers": "^0.22.0",
     "@cloudflare/workers-types": "^5.20260910.1",
+    "@types/node": "^22.20.2",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2",
     "vitest": "^4.1.0",

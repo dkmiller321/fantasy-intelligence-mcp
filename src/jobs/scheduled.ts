@@ -1,0 +1,37 @@
+import type { Env } from "../env";
+import { IngestRepo } from "../storage/d1/ingest";
+
+/**
+ * One dispatcher keyed on the cron string (SPEC section 9). Only small payloads run
+ * here: the free plan allows 10 ms of CPU per cron invocation, so players/nfl and the
+ * nflverse files run in GitHub Actions instead (DECISIONS D13).
+ */
+export async function runScheduled(cron: string, env: Env, now: Date): Promise<void> {
+  const ingest = new IngestRepo(env.DB);
+
+  const jobs: Record<string, { name: string; run: () => Promise<number> }> = {
+    // Every 15 minutes: breaking news.
+    "*/15 * * * *": { name: "news-rss", run: () => Promise.resolve(0) },
+    // Every 6 hours: betting lines.
+    "0 */6 * * *": { name: "odds", run: () => Promise.resolve(0) },
+    // Daily: projections for the current week.
+    "0 9 * * *": { name: "projections", run: () => Promise.resolve(0) },
+    // Tuesday, after the nflverse ETL lands.
+    "0 6 * * 2": { name: "recompute", run: () => Promise.resolve(0) },
+  };
+
+  const job = jobs[cron];
+  if (!job) return;
+
+  const id = await ingest.start(job.name, now.toISOString());
+  try {
+    const rows = await job.run();
+    await ingest.finish(id, rows, new Date().toISOString());
+  } catch (err) {
+    await ingest.fail(
+      id,
+      err instanceof Error ? err.message : String(err),
+      new Date().toISOString(),
+    );
+  }
+}

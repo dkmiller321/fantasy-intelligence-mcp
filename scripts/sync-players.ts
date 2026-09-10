@@ -1,0 +1,172 @@
+/**
+ * Sleeper players/nfl -> D1, with canonical ids resolved through the dynastyprocess
+ * crosswalk.
+ *
+ * Runs in Node, not in the Worker: the payload is 14.6 MB across 12,227 players and the
+ * free plan allows 10 ms of CPU per cron invocation (DECISIONS D13).
+ *
+ *   npm run sync:players -- --remote
+ */
+
+import { canonicalFromSleeper, resolveCanonicalId } from "../src/ids/canonical";
+import { normalizeName, normalizePosition, normalizeTeam } from "../src/ids/normalize";
+import type { Position } from "../src/domain/types";
+import { csvToObjects, fetchText, loadRows, naToNull, parseArgs, sql } from "./lib/d1";
+
+const PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl";
+const CROSSWALK_URL = "https://github.com/dynastyprocess/data/raw/master/files/db_playerids.csv";
+
+interface SleeperPlayer {
+  player_id: string;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  position?: string | null;
+  fantasy_positions?: string[] | null;
+  team?: string | null;
+  status?: string | null;
+  injury_status?: string | null;
+  injury_body_part?: string | null;
+  injury_notes?: string | null;
+  news_updated?: number | null;
+  depth_chart_order?: number | null;
+  age?: number | null;
+  years_exp?: number | null;
+  gsis_id?: string | null;
+  espn_id?: number | null;
+  yahoo_id?: number | null;
+  rotowire_id?: number | null;
+  search_full_name?: string | null;
+}
+
+/** Sleeper injury_status strings -> the domain enum. */
+function mapInjury(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const s = raw.trim().toLowerCase();
+  const map: Record<string, string> = {
+    questionable: "questionable",
+    doubtful: "doubtful",
+    out: "out",
+    ir: "ir",
+    "injured reserve": "ir",
+    pup: "pup",
+    sus: "suspended",
+    suspended: "suspended",
+    na: "out",
+    dnr: "out",
+    cov: "out",
+  };
+  return map[s] ?? "questionable";
+}
+
+function mapStatus(raw: string | null | undefined, team: string | null): string {
+  const s = (raw ?? "").trim().toLowerCase();
+  if (s === "active") return "active";
+  if (s.includes("practice squad")) return "practice_squad";
+  if (!team) return "free_agent";
+  return "inactive";
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const remote = Boolean(args.remote);
+  console.log(`sync-players (${remote ? "remote" : "local"} D1)`);
+
+  const crosswalkCsv = await fetchText(CROSSWALK_URL, "db_playerids.csv");
+  const crosswalk = new Map<string, string>();
+  const extIds: string[] = [];
+  for (const row of csvToObjects(crosswalkCsv)) {
+    const sleeperId = naToNull(row.sleeper_id);
+    const gsis = naToNull(row.gsis_id);
+    if (sleeperId && gsis) crosswalk.set(sleeperId, gsis);
+  }
+  console.log(`  crosswalk pairs: ${crosswalk.size}`);
+
+  const playersJson = await fetchText(PLAYERS_URL, "players/nfl");
+  const players = JSON.parse(playersJson) as Record<string, SleeperPlayer>;
+  const now = new Date().toISOString();
+
+  const rows: string[] = [];
+  let unresolved = 0;
+  let considered = 0;
+
+  for (const [sleeperId, p] of Object.entries(players)) {
+    const fantasyPositions = (p.fantasy_positions ?? [])
+      .map(normalizePosition)
+      .filter((x): x is Position => x !== null);
+    // Only players who can occupy a slot in some league; drops OL, P, LS.
+    if (fantasyPositions.length === 0) continue;
+    considered++;
+
+    const primary = normalizePosition(p.position) ?? fantasyPositions[0];
+    if (!primary) continue;
+
+    const sleeperGsis = naToNull(p.gsis_id);
+    const canonicalId = resolveCanonicalId(sleeperId, sleeperGsis, crosswalk);
+    if (canonicalId === canonicalFromSleeper(sleeperId)) unresolved++;
+
+    const name = p.full_name ?? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
+    if (!name) continue;
+    const team = normalizeTeam(p.team);
+    const injuryUpdated = p.news_updated ? new Date(p.news_updated).toISOString() : null;
+
+    rows.push(
+      `INSERT INTO players (canonical_id, sleeper_id, gsis_id, name, search_name, position,
+        fantasy_positions, team, status, injury_status, injury_body_part, injury_note,
+        injury_updated_at, bye_week, depth_chart_order, age, years_exp, updated_at, fetched_at)
+       VALUES (${sql(canonicalId)}, ${sql(sleeperId)}, ${sql(sleeperGsis ?? crosswalk.get(sleeperId) ?? null)},
+        ${sql(name)}, ${sql(p.search_full_name ?? normalizeName(name))}, ${sql(primary)},
+        ${sql(JSON.stringify(fantasyPositions))}, ${sql(team)}, ${sql(mapStatus(p.status, team))},
+        ${sql(mapInjury(p.injury_status))}, ${sql(p.injury_body_part ?? null)},
+        ${sql(p.injury_notes ?? null)}, ${sql(injuryUpdated)}, NULL,
+        ${sql(p.depth_chart_order ?? null)}, ${sql(p.age ?? null)}, ${sql(p.years_exp ?? null)},
+        ${sql(now)}, ${sql(now)})
+       ON CONFLICT(canonical_id) DO UPDATE SET
+        sleeper_id=excluded.sleeper_id, gsis_id=excluded.gsis_id, name=excluded.name,
+        search_name=excluded.search_name, position=excluded.position,
+        fantasy_positions=excluded.fantasy_positions, team=excluded.team,
+        status=excluded.status, injury_status=excluded.injury_status,
+        injury_body_part=excluded.injury_body_part, injury_note=excluded.injury_note,
+        injury_updated_at=excluded.injury_updated_at,
+        depth_chart_order=excluded.depth_chart_order, age=excluded.age,
+        years_exp=excluded.years_exp, updated_at=excluded.updated_at,
+        fetched_at=excluded.fetched_at;`.replace(/\s+/g, " "),
+    );
+
+    for (const [source, value] of [
+      ["sleeper", sleeperId],
+      ["gsis", sleeperGsis ?? crosswalk.get(sleeperId)],
+      ["espn", p.espn_id],
+      ["yahoo", p.yahoo_id],
+      ["rotowire", p.rotowire_id],
+    ] as const) {
+      if (value === null || value === undefined || value === "") continue;
+      extIds.push(
+        `INSERT INTO player_ids (canonical_id, source, external_id) VALUES (${sql(canonicalId)}, ${sql(source)}, ${sql(String(value))}) ON CONFLICT(source, external_id) DO UPDATE SET canonical_id=excluded.canonical_id;`,
+      );
+    }
+  }
+
+  console.log(`  fantasy-relevant players: ${considered}`);
+  console.log(
+    `  unresolved canonical ids: ${unresolved} (${((unresolved / considered) * 100).toFixed(1)}%)`,
+  );
+
+  const db = "fantasy";
+  loadRows(rows, { database: db, remote, label: "players", batchSize: 400 });
+  loadRows(extIds, { database: db, remote, label: "player_ids", batchSize: 800 });
+
+  const finishedAt = new Date().toISOString();
+  loadRows(
+    [
+      `INSERT INTO ingest_runs (job, started_at, finished_at, status, row_count) VALUES ('sync-players', ${sql(now)}, ${sql(finishedAt)}, 'ok', ${rows.length});`,
+    ],
+    { database: db, remote, label: "ingest_runs" },
+  );
+  console.log("done");
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

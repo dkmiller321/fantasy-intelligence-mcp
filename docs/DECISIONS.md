@@ -102,3 +102,32 @@ The `agents` package declares peer dependencies on React, Vite and several AI SD
 this Worker does not use, and npm's resolver both errored and hit an internal
 `edgesOut` crash on a clean tree. `.npmrc` sets `legacy-peer-deps=true` so local and CI
 installs agree. No runtime effect; none of those peers are imported.
+
+## D12 — Canonical ids need the dynastyprocess crosswalk, not just Sleeper
+SPEC section 4 defines `canonicalId` as "gsis_id when present, else `slp_<sleeperId>`".
+Measured against the live league that rule fails badly: Sleeper populates `gsis_id` for
+only 405 of 1953 active players, and 343 of the 421 players rostered in this league lack
+it, so 81% of the league would be unable to join to nflverse stats — the exact silent
+failure SPEC section 2.6 calls the number-one risk.
+
+Adding the dynastyprocess `db_playerids.csv` crosswalk (12,492 sleeper_id/gsis_id pairs,
+keyless, from the source SPEC section 5 already lists as `ff_playerids`) recovers 330 of
+those 343. Unresolved falls to 13 players, or 3.1%, and every one is a 2026 rookie with
+no prior-season stats to join to. Resolution order is Sleeper's own `gsis_id` first as
+first-party data, then the crosswalk, then `slp_<sleeperId>` as a marked-unresolved
+fallback. `isUnresolved()` lets tools add a caveat rather than silently returning nothing.
+
+## D13 — All heavy ingestion runs in GitHub Actions, not in Worker crons
+The free plan allows 10 ms CPU per Cron Trigger, the same ceiling as an HTTP request.
+Sleeper's `players/nfl` payload is 14.6 MB and 12,227 players; parsing it costs far more
+than 10 ms of CPU, so it cannot run inside the Worker at all. SPEC section 9's CPU budget
+rule resolves this in favour of the GitHub Actions path rather than Workers Paid.
+
+Split:
+- GitHub Actions / local Node scripts: `players/nfl` sync, nflverse weekly stats, the id
+  crosswalk, and the weekly recompute of `defense_vs_position` and `usage_trends`.
+- Worker crons, all small payloads: RSS headlines, odds, and Sleeper trending adds.
+
+Consequence: injury status is as fresh as the last players sync rather than 15 minutes.
+RSS remains the fast path for breaking news, and `get_news` reports both timestamps so
+the staleness is visible rather than assumed.
