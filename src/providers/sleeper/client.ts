@@ -9,21 +9,17 @@ import {
   leagueUserSchema,
   matchupSchema,
   nflStateSchema,
-  projectionRowSchema,
   rosterSchema,
   type SleeperLeague,
   type SleeperLeagueUser,
   type SleeperMatchup,
   type SleeperNflState,
-  type SleeperProjectionRow,
   type SleeperRoster,
   trendingPlayerSchema,
   userSchema,
 } from "./schemas";
 
 const BASE = "https://api.sleeper.app/v1";
-/** Projections live off the unversioned host (DECISIONS.md D6). */
-const PROJ_BASE = "https://api.sleeper.app/projections/nfl";
 
 const TTL = {
   state: 300,
@@ -31,7 +27,6 @@ const TTL = {
   rosters: 300,
   matchups: 300,
   trending: 3600,
-  projections: 3600,
 } as const;
 
 export class SleeperProvider implements Provider {
@@ -99,19 +94,5 @@ export class SleeperProvider implements Provider {
       z.array(trendingPlayerSchema),
       TTL.trending,
     );
-  }
-
-  /** One position at a time; the full-slate response is several MB. */
-  async getProjections(
-    season: number,
-    week: number,
-    position: string,
-  ): Promise<SleeperProjectionRow[]> {
-    const url = `${PROJ_BASE}/${season}/${week}?season_type=regular&position[]=${position}&order_by=ppr`;
-    const raw = await getJson<unknown>(
-      { provider: this.name, url, cacheTtlSec: TTL.projections },
-      this.now(),
-    );
-    return z.array(projectionRowSchema).parse(raw);
   }
 }

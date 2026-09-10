@@ -6,13 +6,13 @@
  */
 
 import { scoreStatLine } from "../src/engine/scoring";
+import { PROJECTION_POSITIONS } from "../src/providers/sleeper/projections";
 import { loadRows, parseArgs, queryD1, sql } from "./lib/d1";
 
 const PROJ = "https://api.sleeper.app/projections/nfl";
 const SLEEPER_LEAGUE = "https://api.sleeper.app/v1/league";
 
-/** Sleeper's projections endpoint keys on fantasy buckets, not raw NFL positions. */
-const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"] as const;
+const POSITIONS = PROJECTION_POSITIONS;
 
 interface ProjRow {
   player_id: string;
