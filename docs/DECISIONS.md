@@ -187,3 +187,34 @@ model nothing that `get_nfl_state` does not while occupying a slot in every tool
 Final surface: fifteen tools, three prompts (`weekly_lineup_review`,
 `waiver_wire_wednesday`, `trade_check`), and two resources (`league://settings`,
 `doc://methodology`).
+
+## D17 — Value is ranked within a position, and read tools must not write
+Three defects found by running the finished tools against the real league rather than
+against tests. All three produced confident, plausible, wrong answers, which is the
+failure mode worth guarding hardest against.
+
+**Read tools were writing on every call.** `syncLeague` upserted the league and all ten
+teams on every request, so tools annotated `readOnlyHint: true` performed eleven writes
+per read. It wasted the free tier's daily write budget and, once that ran out, made every
+read fail. `syncLeague` now serves from D1 while the stored copy is under five minutes
+old, and a failed write no longer fails the read: the fetched data is already correct and
+persisting it is only an optimization for the next caller.
+
+**Waiver targets were ranked by raw projection**, which returned six quarterbacks, because
+quarterbacks score most. Useless advice to an owner who starts one and already rosters
+four. Candidates are now scored by how much they would improve *this* lineup: the
+projection minus the weakest starter they are eligible to displace. The same query now
+returns linebackers, kickers and a defensive back, which are the slots this roster is
+actually thin at, with correspondingly modest bids.
+
+**Replacement level was zero for every position except quarterback.** The free-agent pool
+was selected with `ORDER BY points DESC LIMIT 250`, which in practice returns almost
+nothing but quarterbacks, so no other position had a replacement baseline and every
+player at those positions was valued at their full projection. It made a 23-year-old
+running back look worth six times a streamable quarterback for the wrong reason. The pool
+is now ranked within each position with a window function, and a position with no
+meaningful free agents falls back to an explicit floor rather than to zero.
+
+The lesson generalizes: any "top N" over a mixed-position pool is really a quarterback
+filter, and any cross-position comparison has to be made in units of value over
+replacement.

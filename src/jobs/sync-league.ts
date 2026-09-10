@@ -77,6 +77,8 @@ export interface SyncedLeague {
  * Fetch a league and its rosters, persist both, and return them. Idempotent: every
  * write is an upsert on natural keys.
  */
+const FRESH_MS = 5 * 60 * 1000;
+
 export async function syncLeague(
   sleeper: SleeperProvider,
   db: D1Database,
@@ -84,6 +86,23 @@ export async function syncLeague(
   sleeperUserId: string,
   now: Date,
 ): Promise<SyncedLeague> {
+  const repo = new LeagueRepo(db);
+
+  // Serve from D1 while the stored copy is fresh. Read tools are annotated readOnly and
+  // must not write on every call: eleven upserts per request wasted the free tier's
+  // daily write budget and made every read fail once it ran out.
+  const stored = await repo.getIfFresh(leagueId, now, FRESH_MS);
+  if (stored) {
+    const teams = await repo.teams(leagueId);
+    if (teams.length > 0) {
+      return {
+        league: stored,
+        teams,
+        myTeam: teams.find((t) => t.teamId === stored.myTeamId) ?? null,
+      };
+    }
+  }
+
   const [raw, rosters, users] = await Promise.all([
     sleeper.getLeague(leagueId),
     sleeper.getRosters(leagueId),
@@ -101,10 +120,15 @@ export async function syncLeague(
   const league = toLeague(raw, myTeamId);
   const teams = toTeams(leagueId, rosters, displayNames, league.faabBudget);
 
-  const repo = new LeagueRepo(db);
   const iso = now.toISOString();
-  await repo.upsert(league, iso);
-  await repo.upsertTeams(teams, iso);
+  // A write failure must not fail the read: the freshly fetched data is already correct,
+  // and persisting it is an optimization for the next caller.
+  try {
+    await repo.upsert(league, iso);
+    await repo.upsertTeams(teams, iso);
+  } catch {
+    // Storage is unavailable or over quota; serve what was fetched.
+  }
 
   return {
     league,

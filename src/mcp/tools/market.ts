@@ -2,6 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { roundPoints } from "../../domain/envelope";
 import type { NewsImpact, Position } from "../../domain/types";
+import { optimizeLineup } from "../../engine/lineup";
+import { canFill } from "../../engine/slots";
 import { evaluateTrade, scoreWaiver, type TradeAsset, valueAsset } from "../../engine/trade";
 import { syncLeague } from "../../jobs/sync-league";
 import { NewsRepo } from "../../storage/d1/news";
@@ -13,7 +15,14 @@ import { safeHandler } from "../safe";
 
 const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"] as const;
 
-/** Points per game a freely available player at each position provides. */
+/**
+ * Points per game a freely available player at each position provides.
+ *
+ * A missing position must not fall through to zero: that would price every player at
+ * that position as if a roster spot were worth nothing, inflating their trade value
+ * several-fold. In a deep dynasty league it is common for a position to have no
+ * meaningful free agents at all, so an explicit floor is used and reported.
+ */
 function replacementLevels(pool: readonly EvaluatedPlayer[]): Map<Position, number> {
   const byPos = new Map<Position, number[]>();
   for (const p of pool) {
@@ -25,11 +34,23 @@ function replacementLevels(pool: readonly EvaluatedPlayer[]): Map<Position, numb
   const out = new Map<Position, number>();
   for (const [pos, values] of byPos) {
     values.sort((a, b) => b - a);
-    // The best available free agent is what a roster spot is really worth.
     out.set(pos, values[0] ?? 0);
   }
   return out;
 }
+
+/** Fallback replacement level when the wire is bare at a position. */
+const REPLACEMENT_FLOOR: Record<string, number> = {
+  QB: 14,
+  RB: 6,
+  WR: 6,
+  TE: 5,
+  K: 6,
+  DEF: 5,
+  DL: 4,
+  LB: 5,
+  DB: 4,
+};
 
 export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
@@ -199,7 +220,44 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
       }
 
       const result = await evaluatePlayers(ctx.env.DB, available.slice(0, 120), season, week);
-      const best = Math.max(...result.players.map((p) => p.points ?? 0), 1);
+
+      /**
+       * Value is measured against the owner's own lineup, not against the whole player
+       * pool. Ranking by raw projection returns six quarterbacks, because quarterbacks
+       * score most, which is useless advice to someone who starts one and already
+       * rosters four. What matters is whether an addition would actually start.
+       */
+      const myRows = myTeam
+        ? [
+            ...(
+              await ctx.players.bySleeperIds(
+                myTeam.playerIds.filter(
+                  (id) => !myTeam.taxi.includes(id) && !myTeam.reserve.includes(id),
+                ),
+              )
+            ).values(),
+          ]
+        : [];
+      const mine = await evaluatePlayers(ctx.env.DB, myRows, season, week);
+      const myLineup = optimizeLineup(
+        league.rosterPositions,
+        mine.players.map((p) => ({
+          canonicalId: p.canonicalId,
+          name: p.name,
+          position: p.position,
+          fantasyPositions: p.fantasyPositions,
+          points: p.points,
+          eligible: p.eligible,
+        })),
+      );
+
+      /** The weakest starter a candidate could displace, given slot eligibility. */
+      const displaceable = (fantasyPositions: readonly Position[]): number => {
+        const beatable = myLineup.assignments
+          .filter((a) => canFill(a.slot, fantasyPositions))
+          .map((a) => a.player?.points ?? 0);
+        return beatable.length > 0 ? Math.min(...beatable) : Number.POSITIVE_INFINITY;
+      };
 
       const scored = result.players
         .filter((p) => p.points !== null && p.eligible)
@@ -210,12 +268,17 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
           const usage =
             pointsTrend?.label === "rising" ? 1 : pointsTrend?.label === "falling" ? -1 : 0;
 
+          const floor = displaceable(p.fantasyPositions);
+          const upgrade = Number.isFinite(floor) ? (p.points as number) - floor : 0;
+          // A five-point weekly upgrade is about as good as the wire ever offers.
+          const rosValue = Math.max(0, Math.min(1, upgrade / 5));
+
           const scoredItem = scoreWaiver(
             {
               canonicalId: p.canonicalId,
               name: p.name,
               position: p.position,
-              rosValue: (p.points as number) / best,
+              rosValue,
               usageTrend: usage,
               // Depth-chart position stands in for opportunity: a listed starter on the
               // wire usually means someone ahead of them is unavailable.
@@ -226,6 +289,9 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
           );
 
           const why: string[] = [];
+          if (upgrade > 0) {
+            why.push(`${roundPoints(upgrade)} points better than your weakest eligible starter`);
+          }
           if (adds > 0) why.push(`${adds} adds across Sleeper in the last day`);
           if (pointsTrend?.label === "rising") why.push("scoring trending up");
           if (row?.depth_chart_order === 1) why.push("listed first on the depth chart");
@@ -240,6 +306,9 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
             team: p.team,
             opponent: p.opponent,
             projected: roundPoints(p.points as number),
+            upgradeOverWeakestStarter: Number.isFinite(displaceable(p.fantasyPositions))
+              ? roundPoints((p.points as number) - displaceable(p.fantasyPositions))
+              : null,
             score: scoredItem.score,
             faabBid: `${scoredItem.faabLow}-${scoredItem.faabHigh}% of budget`,
             faabDollars: league.faabBudget
@@ -329,20 +398,24 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
 
       // Replacement level is the best free agent at each position in this league.
       const rostered = new Set(teams.flatMap((t) => [...t.playerIds, ...t.taxi, ...t.reserve]));
+      // Ranked within each position, not globally: ordering the whole pool by points
+      // returns almost nothing but quarterbacks, which left the replacement level for
+      // every other position at zero and inflated their trade value several-fold.
       const faPool = await ctx.env.DB.prepare(
-        `SELECT p.canonical_id, p.sleeper_id, p.gsis_id, p.name, p.search_name, p.position,
-                p.fantasy_positions, p.team, p.status, p.injury_status, p.injury_body_part,
-                p.injury_note, p.injury_updated_at, p.bye_week, p.depth_chart_order, p.age,
-                p.years_exp, p.updated_at, p.fetched_at
-         FROM projections j JOIN players p ON p.canonical_id = j.player_id
-         WHERE j.season = ? AND j.week = ? AND p.status = 'active'
-         ORDER BY j.points DESC LIMIT 250`,
+        `SELECT canonical_id, sleeper_id, gsis_id, name, search_name, position,
+                fantasy_positions, team, status, injury_status, injury_body_part,
+                injury_note, injury_updated_at, bye_week, depth_chart_order, age,
+                years_exp, updated_at, fetched_at FROM (
+           SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.position ORDER BY j.points DESC) AS rn
+           FROM projections j JOIN players p ON p.canonical_id = j.player_id
+           WHERE j.season = ? AND j.week = ? AND p.status = 'active' AND p.team IS NOT NULL
+         ) WHERE rn <= 60`,
       )
         .bind(season, String(week))
         .all<PlayerRow>();
 
       const freeAgents = faPool.results.filter((r) => !r.sleeper_id || !rostered.has(r.sleeper_id));
-      const faEval = await evaluatePlayers(ctx.env.DB, freeAgents.slice(0, 80), season, week);
+      const faEval = await evaluatePlayers(ctx.env.DB, freeAgents, season, week);
       const replacement = replacementLevels(faEval.players);
 
       const remainingWeeks = Math.max(1, 18 - week + 1);
@@ -358,7 +431,7 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
           position: p.position,
           pointsPerGame: p.points ?? 0,
           age: row?.age ?? null,
-          replacementPpg: replacement.get(p.position) ?? 0,
+          replacementPpg: replacement.get(p.position) ?? REPLACEMENT_FLOOR[p.position] ?? 4,
         };
       };
 

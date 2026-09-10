@@ -78,6 +78,18 @@ export class LeagueRepo {
     return r ? rowToLeague(r) : null;
   }
 
+  /** The stored league, only if it was written within `maxAgeMs`. */
+  async getIfFresh(leagueId: string, now: Date, maxAgeMs: number): Promise<League | null> {
+    const r = await this.db
+      .prepare("SELECT * FROM leagues WHERE id = ?")
+      .bind(leagueId)
+      .first<LeagueRow>();
+    if (!r) return null;
+    const age = now.getTime() - Date.parse(r.fetched_at);
+    if (!Number.isFinite(age) || age > maxAgeMs) return null;
+    return rowToLeague(r);
+  }
+
   async list(): Promise<League[]> {
     const res = await this.db
       .prepare("SELECT * FROM leagues ORDER BY season DESC, name")
