@@ -101,3 +101,33 @@ npm run sync:projections -- --week 1 --remote
 ```
 
 Mind the daily write limit before re-running a large load.
+
+## Measured latency
+
+Against the deployed Worker, median of three runs each, token reused so the OAuth
+handshake is excluded:
+
+| Tool | Median | Payload |
+|---|---|---|
+| `get_game_environment` | 299 ms | 4.5 KB |
+| `get_nfl_state` | 422 ms | 0.5 KB |
+| `get_roster` | 434 ms | 10.6 KB |
+| `search_players` | 439 ms | 1.3 KB |
+| `compare_players` | 442 ms | 2.0 KB |
+| `recommend_lineup` | 495 ms | 5.7 KB |
+| `get_playoff_outlook` | 544 ms | 3.9 KB |
+| `get_waiver_targets` | 579 ms | 4.1 KB |
+| `get_matchup_preview` | 599 ms | 1.6 KB |
+
+Two things this confirms. The SPEC's definition of done asks for an answer in under about
+ten seconds; the slowest tool is under six tenths of one. And no request has ever hit the
+free plan's 10 ms CPU ceiling, because the aggregates were computed in advance and the
+request path only reads rows and multiplies a handful of numbers.
+
+`get_roster` at 10.6 KB is the largest payload; it returns `detail: "full"` by design
+because a roster listing is inherently a list. The brief single-player answers are 0.5 to
+2 KB, within the SPEC's 2 KB guidance.
+
+If a future change pushes a tool past a second, the cause is almost certainly a new
+aggregate being computed in the request rather than materialized. Move it to
+`scripts/materialize.ts`.
