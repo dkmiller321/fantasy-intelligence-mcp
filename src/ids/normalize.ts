@@ -31,6 +31,7 @@ const POSITION_MAP: Record<string, Position> = {
   DB: "DB",
   CB: "DB",
   S: "DB",
+  SAF: "DB",
   FS: "DB",
   SS: "DB",
 };

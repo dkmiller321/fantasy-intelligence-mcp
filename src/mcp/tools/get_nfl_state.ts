@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
+import type { ToolContext } from "../context";
 import { degraded, envelope, toolResult } from "../envelope";
 import { safeHandler } from "../safe";
-import type { ToolContext } from "../context";
 
 interface NflStateData {
   season: number;

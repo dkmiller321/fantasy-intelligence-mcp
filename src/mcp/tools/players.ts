@@ -5,7 +5,7 @@ import { canFill, startingSlots } from "../../engine/slots";
 import { isUnresolved } from "../../ids/canonical";
 import { normalizeName } from "../../ids/normalize";
 import { syncLeague } from "../../jobs/sync-league";
-import { rowToPlayer, type PlayerRow } from "../../storage/d1/players";
+import { type PlayerRow, rowToPlayer } from "../../storage/d1/players";
 import { resolveLeagueId, resolveSeasonWeek, sleeperUserId, type ToolContext } from "../context";
 import { degraded, envelope, toolResult } from "../envelope";
 import { safeHandler } from "../safe";
@@ -55,9 +55,7 @@ export function registerPlayerTools(server: McpServer, ctx: ToolContext): void {
 
       const caveats: string[] = [];
       if (candidates.length === 0) {
-        caveats.push(
-          `No player matched "${query}". Try a last name only, or check the spelling.`,
-        );
+        caveats.push(`No player matched "${query}". Try a last name only, or check the spelling.`);
       }
 
       return toolResult(
@@ -73,7 +71,9 @@ export function registerPlayerTools(server: McpServer, ctx: ToolContext): void {
           week,
           now,
           caveats,
-          sources: [{ name: "sleeper", asOf: (await ctx.players.freshness()) ?? now.toISOString() }],
+          sources: [
+            { name: "sleeper", asOf: (await ctx.players.freshness()) ?? now.toISOString() },
+          ],
         }),
       );
     }),

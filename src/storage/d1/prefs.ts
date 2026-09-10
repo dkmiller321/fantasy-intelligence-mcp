@@ -5,7 +5,9 @@ export class PrefsRepo {
 
   async get(subject: string): Promise<UserPrefs | null> {
     const r = await this.db
-      .prepare("SELECT subject, default_league_id, sleeper_username FROM user_prefs WHERE subject = ?")
+      .prepare(
+        "SELECT subject, default_league_id, sleeper_username FROM user_prefs WHERE subject = ?",
+      )
       .bind(subject)
       .first<{ subject: string; default_league_id: string | null; sleeper_username: string }>();
     if (!r) return null;

@@ -79,7 +79,9 @@ export class LeagueRepo {
   }
 
   async list(): Promise<League[]> {
-    const res = await this.db.prepare("SELECT * FROM leagues ORDER BY season DESC, name").all<LeagueRow>();
+    const res = await this.db
+      .prepare("SELECT * FROM leagues ORDER BY season DESC, name")
+      .all<LeagueRow>();
     return res.results.map(rowToLeague);
   }
 

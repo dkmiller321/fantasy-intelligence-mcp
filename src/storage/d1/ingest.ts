@@ -4,7 +4,9 @@ export class IngestRepo {
 
   async start(job: string, now: string): Promise<number> {
     const r = await this.db
-      .prepare("INSERT INTO ingest_runs (job, started_at, status) VALUES (?,?,'running') RETURNING id")
+      .prepare(
+        "INSERT INTO ingest_runs (job, started_at, status) VALUES (?,?,'running') RETURNING id",
+      )
       .bind(job, now)
       .first<{ id: number }>();
     return r?.id ?? 0;

@@ -8,9 +8,9 @@
  *   npm run sync:players -- --remote
  */
 
+import type { Position } from "../src/domain/types";
 import { canonicalFromSleeper, resolveCanonicalId } from "../src/ids/canonical";
 import { normalizeName, normalizePosition, normalizeTeam } from "../src/ids/normalize";
-import type { Position } from "../src/domain/types";
 import { csvToObjects, fetchText, loadRows, naToNull, parseArgs, sql } from "./lib/d1";
 
 const PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl";

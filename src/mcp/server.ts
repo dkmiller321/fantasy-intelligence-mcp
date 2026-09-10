@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import type { ToolContext } from "./context";
+import { registerAdviceTools } from "./tools/advice";
 import { registerNflState } from "./tools/get_nfl_state";
 import { registerLeagueTools } from "./tools/leagues";
 import { registerPing } from "./tools/ping";
@@ -15,6 +16,7 @@ export function createServer(ctx: ToolContext): McpServer {
   registerNflState(server, ctx);
   registerLeagueTools(server, ctx);
   registerPlayerTools(server, ctx);
+  registerAdviceTools(server, ctx);
 
   return server;
 }

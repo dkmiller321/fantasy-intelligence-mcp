@@ -42,10 +42,7 @@ export function toolContext(
  * Which league a tool call is about: an explicit argument, then the caller's saved
  * default, then the league configured at deploy time.
  */
-export async function resolveLeagueId(
-  ctx: ToolContext,
-  explicit?: string,
-): Promise<string | null> {
+export async function resolveLeagueId(ctx: ToolContext, explicit?: string): Promise<string | null> {
   if (explicit) return explicit;
   const prefs = await ctx.prefs.get(ctx.subject);
   return prefs?.defaultLeagueId ?? ctx.env.DEFAULT_LEAGUE_ID ?? null;

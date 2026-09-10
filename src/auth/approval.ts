@@ -50,8 +50,7 @@ export function renderApproval(req: AuthRequest, clientName: string, error?: str
 function escapeHtml(s: string): string {
   return s.replace(
     /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
   );
 }
 
@@ -69,10 +68,7 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-export async function handleAuthorize(
-  request: Request,
-  env: Env,
-): Promise<Response> {
+export async function handleAuthorize(request: Request, env: Env): Promise<Response> {
   const oauth = env.OAUTH_PROVIDER;
 
   if (request.method === "GET") {

@@ -16,7 +16,10 @@
     "etl": "tsx scripts/nflverse-etl.ts",
     "fixtures": "tsx scripts/refresh-fixtures.ts",
     "cf-typegen": "wrangler types",
-    "sync:players": "tsx scripts/sync-players.ts"
+    "sync:players": "tsx scripts/sync-players.ts",
+    "sync:projections": "tsx scripts/sync-projections.ts",
+    "materialize": "tsx scripts/materialize.ts",
+    "call": "tsx scripts/call-tool.ts"
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^0.10.3",

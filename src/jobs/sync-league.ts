@@ -50,8 +50,7 @@ export function toTeams(
       leagueId,
       teamId: String(r.roster_id),
       ownerUserId: r.owner_id,
-      displayName:
-        (r.owner_id ? displayNames.get(r.owner_id) : undefined) ?? `Team ${r.roster_id}`,
+      displayName: (r.owner_id ? displayNames.get(r.owner_id) : undefined) ?? `Team ${r.roster_id}`,
       playerIds: r.players ?? [],
       starters: r.starters ?? [],
       taxi: r.taxi ?? [],

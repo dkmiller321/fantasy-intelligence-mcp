@@ -49,6 +49,9 @@ const EXPECTED_TOOLS = [
   "get_league",
   "search_players",
   "get_roster",
+  "compare_players",
+  "recommend_lineup",
+  "get_player_profile",
 ];
 
 describe("MCP surface", () => {
