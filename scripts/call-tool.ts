@@ -93,7 +93,7 @@ async function main(): Promise<void> {
   const positional = argv.filter((a) => !a.startsWith("--"));
   const name = positional[0];
   if (!name) {
-    console.error("usage: npm run call -- <tool_name> ['{\"json\":\"args\"}']");
+    console.error('usage: npm run call -- <tool_name> [\'{"json":"args"}\']');
     process.exit(1);
   }
   const args = positional[1] ? (JSON.parse(positional[1]) as Record<string, unknown>) : {};

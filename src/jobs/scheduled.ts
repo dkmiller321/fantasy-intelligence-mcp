@@ -1,5 +1,7 @@
 import type { Env } from "../env";
 import { IngestRepo } from "../storage/d1/ingest";
+import { syncNews } from "./sync-news";
+import { syncWeather } from "./sync-weather";
 
 /**
  * One dispatcher keyed on the cron string (SPEC section 9). Only small payloads run
@@ -11,9 +13,10 @@ export async function runScheduled(cron: string, env: Env, now: Date): Promise<v
 
   const jobs: Record<string, { name: string; run: () => Promise<number> }> = {
     // Every 15 minutes: breaking news.
-    "*/15 * * * *": { name: "news-rss", run: () => Promise.resolve(0) },
-    // Every 6 hours: betting lines.
-    "0 */6 * * *": { name: "odds", run: () => Promise.resolve(0) },
+    "*/15 * * * *": { name: "news-rss", run: () => syncNews(env, now) },
+    // Every 6 hours: weather forecasts for upcoming outdoor games. Betting lines
+    // arrive with the nflverse schedule ETL, so no odds provider is needed (D14).
+    "0 */6 * * *": { name: "weather", run: () => syncWeather(env, now) },
     // Daily: projections for the current week.
     "0 9 * * *": { name: "projections", run: () => Promise.resolve(0) },
     // Tuesday, after the nflverse ETL lands.

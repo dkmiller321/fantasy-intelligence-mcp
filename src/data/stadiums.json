@@ -1,0 +1,167 @@
+{
+  "ARI": {
+    "venue": "State Farm Stadium",
+    "lng": -112.2625,
+    "lat": 33.5275
+  },
+  "ATL": {
+    "venue": "Mercedes-Benz Stadium",
+    "lng": -84.400833333,
+    "lat": 33.755277777
+  },
+  "BAL": {
+    "venue": "M&T Bank Stadium",
+    "lng": -76.622777777,
+    "lat": 39.278055555
+  },
+  "BUF": {
+    "venue": "Ralph Wilson Stadium",
+    "lng": -78.786944444,
+    "lat": 42.773611111
+  },
+  "CAR": {
+    "venue": "Bank of America Stadium",
+    "lng": -80.852777777,
+    "lat": 35.225833333
+  },
+  "CHI": {
+    "venue": "Soldier Field",
+    "lng": -87.616666666,
+    "lat": 41.8625
+  },
+  "CIN": {
+    "venue": "Paycor Stadium",
+    "lng": -84.516038888,
+    "lat": 39.095444444
+  },
+  "CLE": {
+    "venue": "Huntington Bank Field",
+    "lng": -81.699444444,
+    "lat": 41.506111111
+  },
+  "DAL": {
+    "venue": "AT&T Stadium",
+    "lng": -97.09288,
+    "lat": 32.74769
+  },
+  "DEN": {
+    "venue": "Empower Field at Mile High",
+    "lng": -105.02,
+    "lat": 39.743888888
+  },
+  "DET": {
+    "venue": "Ford Field",
+    "lng": -83.045555555,
+    "lat": 42.34
+  },
+  "GB": {
+    "venue": "Lambeau Field",
+    "lng": -88.062222222,
+    "lat": 44.501388888
+  },
+  "HOU": {
+    "venue": "Reliant Stadium",
+    "lng": -95.410833333,
+    "lat": 29.684722222
+  },
+  "IND": {
+    "venue": "Lucas Oil Stadium",
+    "lng": -86.163806,
+    "lat": 39.760056
+  },
+  "JAX": {
+    "venue": "EverBank Field",
+    "lng": -81.6375,
+    "lat": 30.323889
+  },
+  "KC": {
+    "venue": "Municipal Stadium",
+    "lng": -94.556944444,
+    "lat": 39.085833333
+  },
+  "LA": {
+    "venue": "SoFi Stadium",
+    "lng": -118.338,
+    "lat": 33.9504
+  },
+  "LAC": {
+    "venue": "SoFi Stadium",
+    "lng": -118.338,
+    "lat": 33.9504
+  },
+  "LAR": {
+    "venue": "SoFi Stadium",
+    "lng": -118.338,
+    "lat": 33.9504
+  },
+  "LV": {
+    "venue": "Allegiant Stadium",
+    "lng": -115.183,
+    "lat": 36.090777777
+  },
+  "MIA": {
+    "venue": "Hard Rock Stadium",
+    "lng": -80.238888888,
+    "lat": 25.958055555
+  },
+  "MIN": {
+    "venue": "U.S. Bank Stadium",
+    "lng": -93.258056,
+    "lat": 44.973889
+  },
+  "NE": {
+    "venue": "Gillette Stadium",
+    "lng": -71.264344444,
+    "lat": 42.090944444
+  },
+  "NO": {
+    "venue": "Caesars Superdome",
+    "lng": -90.081111111,
+    "lat": 29.950833333
+  },
+  "NYG": {
+    "venue": "MetLife Stadium",
+    "lng": -74.074444444,
+    "lat": 40.813611111
+  },
+  "NYJ": {
+    "venue": "MetLife Stadium",
+    "lng": -74.074444444,
+    "lat": 40.813611111
+  },
+  "PHI": {
+    "venue": "Lincoln Financial Field",
+    "lng": -75.16776,
+    "lat": 39.90089
+  },
+  "PIT": {
+    "venue": "Acrisure Stadium",
+    "lng": -80.015833333,
+    "lat": 40.446666666
+  },
+  "SEA": {
+    "venue": "Lumen Field",
+    "lng": -122.331666666,
+    "lat": 47.595277777
+  },
+  "SF": {
+    "venue": "Levi's Stadium",
+    "lng": -121.97,
+    "lat": 37.4034
+  },
+  "TB": {
+    "venue": "Raymond James Stadium",
+    "lng": -82.503333333,
+    "lat": 27.975833333
+  },
+  "TEN": {
+    "venue": "Nissan Stadium",
+    "lng": -86.771388888,
+    "lat": 36.166388888
+  },
+  "WAS": {
+    "venue": "Northwest Stadium",
+    "lng": -76.864444444,
+    "lat": 38.907777777
+  }
+}

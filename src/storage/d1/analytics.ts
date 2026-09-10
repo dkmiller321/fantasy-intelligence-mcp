@@ -37,6 +37,7 @@ export interface GameRow {
   implied_away: number | null;
   temp_f: number | null;
   wind_mph: number | null;
+  precip_prob: number | null;
 }
 
 const CHUNK = 90;
@@ -97,7 +98,7 @@ export class AnalyticsRepo {
     const res = await this.db
       .prepare(
         `SELECT id, week, home, away, kickoff, roof, spread, total, implied_home,
-                implied_away, temp_f, wind_mph
+                implied_away, temp_f, wind_mph, precip_prob
          FROM games WHERE season = ? AND week = ?`,
       )
       .bind(season, week)

@@ -3,7 +3,7 @@
 Remote MCP server on Cloudflare Workers that turns the Claude app into a personal
 fantasy football analyst for one Sleeper league.
 
-**Current phase: 1 — league and players**
+**Current phase: 5 complete — all tools shipped**
 
 ## Stack
 

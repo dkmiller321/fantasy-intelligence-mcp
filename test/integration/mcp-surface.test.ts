@@ -42,7 +42,6 @@ async function callTool(name: string, args: Record<string, unknown> = {}): Promi
 }
 
 const EXPECTED_TOOLS = [
-  "ping",
   "get_nfl_state",
   "get_my_leagues",
   "set_default_league",
@@ -52,6 +51,12 @@ const EXPECTED_TOOLS = [
   "compare_players",
   "recommend_lineup",
   "get_player_profile",
+  "get_game_environment",
+  "get_news",
+  "get_waiver_targets",
+  "evaluate_trade",
+  "get_matchup_preview",
+  "get_playoff_outlook",
 ];
 
 describe("MCP surface", () => {
@@ -74,11 +79,6 @@ describe("MCP surface", () => {
     for (const t of out.result.tools) {
       expect(t.description.length, `${t.name} description`).toBeGreaterThan(40);
     }
-  });
-
-  it("ping returns ok", async () => {
-    const out = await rpc("tools/call", { name: "ping", arguments: {} });
-    expect(JSON.parse(out.result.content[0].text).ok).toBe(true);
   });
 
   it("health endpoint responds", async () => {

@@ -55,9 +55,17 @@ describe("owner-only OAuth", () => {
   it("leaves the health endpoint public", async () => {
     const res = await SELF.fetch("https://example.com/health");
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; providers: Record<string, string> };
+    const body = (await res.json()) as {
+      ok: boolean;
+      providers: Record<string, string>;
+      freshness: Record<string, { asOf: string | null; ageHours: number | null }>;
+    };
     expect(body.ok).toBe(true);
     // Optional providers report as absent rather than breaking the endpoint.
-    expect(body.providers.odds).toBe("absent");
+    expect(body.providers.odds).toContain("absent");
+    expect(body.providers.sleeper).toBe("keyless");
+    // Freshness is reported per source even when nothing has been ingested.
+    expect(body.freshness).toHaveProperty("players");
+    expect(body.freshness).toHaveProperty("news");
   });
 });

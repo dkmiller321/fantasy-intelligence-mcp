@@ -131,3 +131,59 @@ Split:
 Consequence: injury status is as fresh as the last players sync rather than 15 minutes.
 RSS remains the fast path for breaking news, and `get_news` reports both timestamps so
 the staleness is visible rather than assumed.
+
+## D14 — The Odds API is not needed; nflverse schedules already carry the lines
+SPEC section 5 budgets The Odds API at roughly 240 of its 500 free monthly credits for
+spreads and totals, and SPEC section 3 treats game environment as a first-class signal
+that needs a key. It does not: the nflverse `schedules/games.csv` release carries
+`spread_line` and `total_line` per game, alongside `roof`, `surface`, `stadium_id`,
+and post-game `temp`/`wind`. All 16 week-1 games of 2026 had both a spread and a total,
+and 101 of 272 games across the season were already lined.
+
+Implied team totals are therefore computed from data the ETL already downloads, with no
+key, no credit budget and no third-party account. The Odds API adapter is not built.
+If a live in-week line ever matters more than the opening number, it can be added behind
+`ODDS_API_KEY` without changing the engine, which reads `games.implied_home` /
+`implied_away` regardless of who wrote them.
+
+Weather is the one genuinely missing piece, because nflverse's `temp` and `wind` are
+post-game observations rather than forecasts. Open-Meteo supplies the forecast, keyless,
+and accepts every stadium in a single request.
+
+## D15 — D1's free tier allows 100,000 row writes per day, which the backfill exceeds
+Loading the initial dataset costs roughly:
+
+| Load | Rows |
+|---|---|
+| players | 9,878 |
+| player_ids | 36,382 |
+| player_week_stats 2025 | 16,520 |
+| games (2025 + 2026) | 557 |
+| projections, one week | 911 |
+| defense_vs_position | 256 |
+
+A single clean backfill is about 64,500 writes and fits. Running it twice in one day does
+not, and the first load had to be repeated after the "NA" defect was found, which
+exhausted the day's quota and made the weather job fail with an explicit limit error.
+
+This is a one-time shape, not an ongoing one. Steady-state writes are the daily
+projections refresh plus the weekly recompute and forecasts, roughly 1,200 rows a day
+against a 100,000 ceiling. Backfills should be run once, and no more than one per UTC
+day; `RUNBOOK.md` says so. Per SPEC section 2.10 this is not a reason to buy the paid
+plan, and no paid dependency is introduced.
+
+## D16 — Tool count stays at fifteen; only `ping` is removed
+SPEC section 7 lists fifteen tools and asks for consolidation to about twelve "if overlaps
+appear in practice". Built and exercised, they do not overlap: each maps to a distinct
+question an owner actually asks, which is SPEC section 2.2's test. Folding `get_league`
+into `get_my_leagues` would make the common case (one league, full settings) return a
+list wrapper, and folding `get_nfl_state` into a resource would remove the cheapest way
+for the model to learn the current week before every other call.
+
+`ping` is removed. It was a Phase 0 scaffold that proved the transport, and it tells the
+model nothing that `get_nfl_state` does not while occupying a slot in every tool listing.
+`/health` covers the operational check it was serving.
+
+Final surface: fifteen tools, three prompts (`weekly_lineup_review`,
+`waiver_wire_wednesday`, `trade_check`), and two resources (`league://settings`,
+`doc://methodology`).

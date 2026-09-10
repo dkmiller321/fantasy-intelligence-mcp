@@ -1,0 +1,433 @@
+import type { McpServer } from "@modelcontextprotocol/server";
+import { z } from "zod";
+import { roundPoints } from "../../domain/envelope";
+import type { NewsImpact, Position } from "../../domain/types";
+import { evaluateTrade, scoreWaiver, type TradeAsset, valueAsset } from "../../engine/trade";
+import { syncLeague } from "../../jobs/sync-league";
+import { NewsRepo } from "../../storage/d1/news";
+import type { PlayerRow } from "../../storage/d1/players";
+import { resolveLeagueId, resolveSeasonWeek, sleeperUserId, type ToolContext } from "../context";
+import { degraded, envelope, toolResult } from "../envelope";
+import { type EvaluatedPlayer, evaluatePlayers, evaluationCaveats } from "../evaluate";
+import { safeHandler } from "../safe";
+
+const POSITIONS = ["QB", "RB", "WR", "TE", "K", "DEF", "DL", "LB", "DB"] as const;
+
+/** Points per game a freely available player at each position provides. */
+function replacementLevels(pool: readonly EvaluatedPlayer[]): Map<Position, number> {
+  const byPos = new Map<Position, number[]>();
+  for (const p of pool) {
+    if (p.points === null) continue;
+    const list = byPos.get(p.position) ?? [];
+    list.push(p.points);
+    byPos.set(p.position, list);
+  }
+  const out = new Map<Position, number>();
+  for (const [pos, values] of byPos) {
+    values.sort((a, b) => b - a);
+    // The best available free agent is what a roster spot is really worth.
+    out.set(pos, values[0] ?? 0);
+  }
+  return out;
+}
+
+export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
+  server.registerTool(
+    "get_news",
+    {
+      description:
+        "Recent NFL headlines, newest first, matched to players. Pass `since` (an ISO " +
+        "timestamp) to get only what has changed since then, which is how to answer 'what " +
+        "happened today' or 'anything new on my roster'. Filter with minImpact to skip noise. " +
+        "Injury designations from Sleeper are authoritative; these headlines add the context.",
+      inputSchema: {
+        leagueId: z.string().optional().describe("Restrict to players on the owner's roster"),
+        playerIds: z.array(z.string()).max(20).optional(),
+        since: z.string().optional().describe("ISO timestamp"),
+        minImpact: z.enum(["high", "medium", "low"]).optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    safeHandler(
+      "get_news",
+      ctx.now,
+      async ({ leagueId: explicit, playerIds, since, minImpact, limit }) => {
+        const now = ctx.now();
+        const { season, week } = await resolveSeasonWeek(ctx);
+        const repo = new NewsRepo(ctx.env.DB);
+
+        let ids = playerIds ?? [];
+        const leagueId = await resolveLeagueId(ctx, explicit);
+        if (ids.length === 0 && explicit !== undefined && leagueId) {
+          // Roster-scoped: only news about players the owner actually holds.
+          const userId = await sleeperUserId(ctx);
+          const { myTeam } = await syncLeague(ctx.sleeper, ctx.env.DB, leagueId, userId, now);
+          if (myTeam) {
+            const rows = await ctx.players.bySleeperIds(myTeam.playerIds);
+            ids = [...rows.values()].map((r) => r.canonical_id);
+          }
+        }
+
+        const items = await repo.recent({
+          ...(since ? { since } : {}),
+          ...(minImpact ? { minImpact: minImpact as NewsImpact } : {}),
+          ...(ids.length > 0 ? { playerIds: ids } : {}),
+          limit: limit ?? 20,
+        });
+
+        const named = await ctx.players.byCanonicalIds([
+          ...new Set(items.flatMap((i) => i.playerIds)),
+        ]);
+        const rows = items.map((i) => ({
+          title: i.title,
+          source: i.source,
+          impact: i.impact,
+          publishedAt: i.publishedAt,
+          url: i.url ?? null,
+          players: i.playerIds.map((id) => named.get(id)?.name ?? id),
+        }));
+
+        const caveats: string[] = [];
+        const freshness = await repo.freshness();
+        if (!freshness) {
+          caveats.push("No news has been ingested yet; the RSS job may not have run.");
+        }
+        if (rows.length === 0 && since) {
+          caveats.push(`Nothing published since ${since}.`);
+        }
+        const unmatched = items.filter((i) => i.playerIds.length === 0).length;
+        if (unmatched > 0) {
+          caveats.push(
+            `${unmatched} headlines could not be tied to a specific player, usually because a ` +
+              "surname is shared. They are included rather than dropped.",
+          );
+        }
+
+        const high = rows.filter((r) => r.impact === "high").length;
+        return toolResult(
+          envelope({
+            summary:
+              rows.length === 0
+                ? "No matching news."
+                : `${rows.length} items${high > 0 ? `, ${high} high impact` : ""}` +
+                  `${since ? ` since ${since}` : ""}.`,
+            data: { items: rows },
+            season,
+            week,
+            now,
+            ...(leagueId ? { leagueId } : {}),
+            caveats,
+            sources: [{ name: "rss", asOf: freshness ?? now.toISOString() }],
+          }),
+        );
+      },
+    ),
+  );
+
+  server.registerTool(
+    "get_waiver_targets",
+    {
+      description:
+        "Free agents worth adding, ranked, with why they matter now and a suggested FAAB bid " +
+        "as a percentage of the season budget. Excludes everyone already rostered in the " +
+        "league. Use for 'who should I pick up' or waiver-wire questions.",
+      inputSchema: {
+        leagueId: z.string().optional(),
+        position: z.enum(POSITIONS).optional(),
+        limit: z.number().int().min(1).max(25).optional(),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    safeHandler("get_waiver_targets", ctx.now, async ({ leagueId: explicit, position, limit }) => {
+      const now = ctx.now();
+      const { season, week } = await resolveSeasonWeek(ctx);
+      const leagueId = await resolveLeagueId(ctx, explicit);
+      if (!leagueId) {
+        return degraded({
+          data: null,
+          season,
+          week,
+          now,
+          failure: "No league id and no default set.",
+        });
+      }
+
+      const userId = await sleeperUserId(ctx);
+      const { league, teams, myTeam } = await syncLeague(
+        ctx.sleeper,
+        ctx.env.DB,
+        leagueId,
+        userId,
+        now,
+      );
+
+      // Everyone rostered anywhere in the league is unavailable.
+      const rostered = new Set(teams.flatMap((t) => [...t.playerIds, ...t.taxi, ...t.reserve]));
+
+      const trending = await ctx.sleeper.getTrendingAdds(50).catch(() => []);
+      const trendingBySleeper = new Map(trending.map((t) => [t.player_id, t.count]));
+      const maxAdds = trending.reduce((a, t) => Math.max(a, t.count), 0);
+
+      // Candidates: players with a projection this week who are not rostered.
+      const projected = await ctx.env.DB.prepare(
+        `SELECT p.canonical_id, p.sleeper_id, p.gsis_id, p.name, p.search_name, p.position,
+                p.fantasy_positions, p.team, p.status, p.injury_status, p.injury_body_part,
+                p.injury_note, p.injury_updated_at, p.bye_week, p.depth_chart_order, p.age,
+                p.years_exp, p.updated_at, p.fetched_at
+         FROM projections j JOIN players p ON p.canonical_id = j.player_id
+         WHERE j.season = ? AND j.week = ? AND p.status = 'active' AND p.team IS NOT NULL
+         ${position ? "AND p.position = ?" : ""}
+         ORDER BY j.points DESC LIMIT 300`,
+      )
+        .bind(...(position ? [season, String(week), position] : [season, String(week)]))
+        .all<PlayerRow>();
+
+      const available = projected.results.filter(
+        (r) => !r.sleeper_id || !rostered.has(r.sleeper_id),
+      );
+      if (available.length === 0) {
+        return degraded({
+          data: { targets: [] },
+          season,
+          week,
+          now,
+          leagueId,
+          failure:
+            "No projected free agents found. Projections may not be loaded for this week yet.",
+        });
+      }
+
+      const result = await evaluatePlayers(ctx.env.DB, available.slice(0, 120), season, week);
+      const best = Math.max(...result.players.map((p) => p.points ?? 0), 1);
+
+      const scored = result.players
+        .filter((p) => p.points !== null && p.eligible)
+        .map((p) => {
+          const row = available.find((r) => r.canonical_id === p.canonicalId);
+          const adds = row?.sleeper_id ? (trendingBySleeper.get(row.sleeper_id) ?? 0) : 0;
+          const pointsTrend = p.trend.find((t) => t.metric === "points");
+          const usage =
+            pointsTrend?.label === "rising" ? 1 : pointsTrend?.label === "falling" ? -1 : 0;
+
+          const scoredItem = scoreWaiver(
+            {
+              canonicalId: p.canonicalId,
+              name: p.name,
+              position: p.position,
+              rosValue: (p.points as number) / best,
+              usageTrend: usage,
+              // Depth-chart position stands in for opportunity: a listed starter on the
+              // wire usually means someone ahead of them is unavailable.
+              opportunity: row?.depth_chart_order === 1 ? 0.8 : 0.2,
+              trendingAdds: adds,
+            },
+            maxAdds,
+          );
+
+          const why: string[] = [];
+          if (adds > 0) why.push(`${adds} adds across Sleeper in the last day`);
+          if (pointsTrend?.label === "rising") why.push("scoring trending up");
+          if (row?.depth_chart_order === 1) why.push("listed first on the depth chart");
+          if (p.matchupRank !== null && p.matchupRank <= 8) {
+            why.push(`favourable matchup vs ${p.opponent}`);
+          }
+
+          return {
+            canonicalId: p.canonicalId,
+            name: p.name,
+            position: p.position,
+            team: p.team,
+            opponent: p.opponent,
+            projected: roundPoints(p.points as number),
+            score: scoredItem.score,
+            faabBid: `${scoredItem.faabLow}-${scoredItem.faabHigh}% of budget`,
+            faabDollars: league.faabBudget
+              ? `$${Math.round((league.faabBudget * scoredItem.faabLow) / 100)}-` +
+                `$${Math.round((league.faabBudget * scoredItem.faabHigh) / 100)}`
+              : null,
+            whyNow: why.length > 0 ? why.join("; ") : "best available by projection",
+          };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit ?? 10);
+
+      const caveats = evaluationCaveats(result);
+      caveats.push(
+        `${myTeam?.faabRemaining ?? "unknown"} FAAB remaining of ${league.faabBudget ?? "?"}.`,
+      );
+
+      return toolResult(
+        envelope({
+          summary:
+            scored.length === 0
+              ? "No free agents stood out this week."
+              : `Top target: ${scored[0]?.name} (${scored[0]?.position}), ` +
+                `bid ${scored[0]?.faabDollars ?? scored[0]?.faabBid}.`,
+          data: { targets: scored },
+          season,
+          week,
+          now,
+          leagueId,
+          caveats,
+          detail: "full",
+          sources: [{ name: "sleeper", asOf: now.toISOString() }],
+        }),
+      );
+    }),
+  );
+
+  server.registerTool(
+    "evaluate_trade",
+    {
+      description:
+        "Judge a proposed trade. Values every player by points over replacement across the " +
+        "remaining season, weights the fantasy playoff weeks more heavily, and applies a " +
+        "dynasty age adjustment. Returns a verdict and the value on each side. Rookie draft " +
+        "picks are not valued and are reported as unpriced.",
+      inputSchema: {
+        give: z.array(z.string()).min(1).max(6).describe("canonicalIds the owner sends away"),
+        receive: z.array(z.string()).min(1).max(6).describe("canonicalIds the owner gets back"),
+        leagueId: z.string().optional(),
+      },
+      annotations: { readOnlyHint: true },
+    },
+    safeHandler("evaluate_trade", ctx.now, async ({ give, receive, leagueId: explicit }) => {
+      const now = ctx.now();
+      const { season, week } = await resolveSeasonWeek(ctx);
+      const leagueId = await resolveLeagueId(ctx, explicit);
+      if (!leagueId) {
+        return degraded({
+          data: null,
+          season,
+          week,
+          now,
+          failure: "No league id and no default set.",
+        });
+      }
+
+      const userId = await sleeperUserId(ctx);
+      const { league, teams } = await syncLeague(ctx.sleeper, ctx.env.DB, leagueId, userId, now);
+
+      const wanted = [...give, ...receive];
+      const rowMap = await ctx.players.byCanonicalIds(wanted);
+      const missing = wanted.filter((id) => !rowMap.has(id));
+      if (missing.length === wanted.length) {
+        return degraded({
+          data: null,
+          season,
+          week,
+          now,
+          leagueId,
+          failure: "None of the given ids matched a player. Use search_players first.",
+        });
+      }
+
+      const rows = [...rowMap.values()];
+      const result = await evaluatePlayers(ctx.env.DB, rows, season, week);
+      const byId = new Map(result.players.map((p) => [p.canonicalId, p]));
+
+      // Replacement level is the best free agent at each position in this league.
+      const rostered = new Set(teams.flatMap((t) => [...t.playerIds, ...t.taxi, ...t.reserve]));
+      const faPool = await ctx.env.DB.prepare(
+        `SELECT p.canonical_id, p.sleeper_id, p.gsis_id, p.name, p.search_name, p.position,
+                p.fantasy_positions, p.team, p.status, p.injury_status, p.injury_body_part,
+                p.injury_note, p.injury_updated_at, p.bye_week, p.depth_chart_order, p.age,
+                p.years_exp, p.updated_at, p.fetched_at
+         FROM projections j JOIN players p ON p.canonical_id = j.player_id
+         WHERE j.season = ? AND j.week = ? AND p.status = 'active'
+         ORDER BY j.points DESC LIMIT 250`,
+      )
+        .bind(season, String(week))
+        .all<PlayerRow>();
+
+      const freeAgents = faPool.results.filter((r) => !r.sleeper_id || !rostered.has(r.sleeper_id));
+      const faEval = await evaluatePlayers(ctx.env.DB, freeAgents.slice(0, 80), season, week);
+      const replacement = replacementLevels(faEval.players);
+
+      const remainingWeeks = Math.max(1, 18 - week + 1);
+      const playoffWeeks = Math.max(0, 18 - league.playoffWeekStart + 1);
+
+      const toAsset = (id: string): TradeAsset | null => {
+        const p = byId.get(id);
+        const row = rowMap.get(id);
+        if (!p) return null;
+        return {
+          canonicalId: p.canonicalId,
+          name: p.name,
+          position: p.position,
+          pointsPerGame: p.points ?? 0,
+          age: row?.age ?? null,
+          replacementPpg: replacement.get(p.position) ?? 0,
+        };
+      };
+
+      const giveAssets = give
+        .map(toAsset)
+        .filter((a): a is TradeAsset => a !== null)
+        .map((a) => valueAsset(a, remainingWeeks, playoffWeeks));
+      const receiveAssets = receive
+        .map(toAsset)
+        .filter((a): a is TradeAsset => a !== null)
+        .map((a) => valueAsset(a, remainingWeeks, playoffWeeks));
+
+      const verdict = evaluateTrade(giveAssets, receiveAssets);
+
+      const caveats = evaluationCaveats(result);
+      if (missing.length > 0) {
+        caveats.push(
+          `${missing.length} of the ids given did not match a player and were left out of the ` +
+            "valuation, so the verdict is incomplete.",
+        );
+      }
+      if (!league.isDynasty) {
+        caveats.push("Age adjustment applied, though this league is not marked dynasty.");
+      } else {
+        caveats.push(
+          "Dynasty age curve applied. Rookie draft picks are not valued at all; if the deal " +
+            "includes picks, judge those separately.",
+        );
+      }
+      caveats.push(
+        `Playoff weeks ${league.playoffWeekStart}-18 are weighted ` +
+          `${((1.25 - 1) * 100).toFixed(0)}% above regular-season weeks.`,
+      );
+
+      const describe = (a: (typeof giveAssets)[number]) => ({
+        name: a.name,
+        position: a.position,
+        age: a.age,
+        pointsPerGame: roundPoints(a.pointsPerGame),
+        overReplacement: roundPoints(a.valueOverReplacement),
+        ageMultiplier: a.ageMultiplier,
+        value: a.adjustedValue,
+      });
+
+      return toolResult(
+        envelope({
+          summary:
+            `${verdict.verdict.replace(/^\w/, (c) => c.toUpperCase())}: ` +
+            `${verdict.net >= 0 ? "+" : ""}${verdict.net} net value ` +
+            `(${verdict.receive.total} in, ${verdict.give.total} out).`,
+          data: {
+            verdict: verdict.verdict,
+            net: verdict.net,
+            give: { total: verdict.give.total, players: giveAssets.map(describe) },
+            receive: { total: verdict.receive.total, players: receiveAssets.map(describe) },
+            rosterFit: verdict.rosterFitNote,
+            remainingWeeks,
+            playoffWeeks,
+          },
+          season,
+          week,
+          now,
+          leagueId,
+          confidence: 0.6,
+          caveats,
+          detail: "full",
+          sources: [{ name: "sleeper", asOf: now.toISOString() }],
+        }),
+      );
+    }),
+  );
+}

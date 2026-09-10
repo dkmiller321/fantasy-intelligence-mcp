@@ -162,7 +162,7 @@ export async function evaluatePlayers(
         impliedTeamTotal: slate?.impliedTotal ?? null,
         roof: slate?.game.roof ?? null,
         windMph: slate?.game.wind_mph ?? null,
-        precipProb: null,
+        precipProb: slate?.game.precip_prob ?? null,
       },
       position,
       totalMean,

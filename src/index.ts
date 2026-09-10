@@ -4,18 +4,51 @@ import { handleAuthorize } from "./auth/approval";
 import type { Env } from "./env";
 import { runScheduled } from "./jobs/scheduled";
 import { toolContext } from "./mcp/context";
+import { checkRateLimit, logRequest } from "./mcp/ratelimit";
 import { createServer } from "./mcp/server";
 import { IngestRepo } from "./storage/d1/ingest";
+import { NewsRepo } from "./storage/d1/news";
+import { PlayerRepo } from "./storage/d1/players";
 
 /** Serves /mcp for requests the OAuth provider has already authenticated. */
 const mcpHandler = {
-  fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const handler = createMcpHandler(() => {
-      const auth = getMcpAuthContext();
-      const subject = typeof auth?.props?.subject === "string" ? auth.props.subject : "owner";
-      return createServer(toolContext(env, () => new Date(), subject));
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const started = Date.now();
+    const auth = getMcpAuthContext();
+    const subject = typeof auth?.props?.subject === "string" ? auth.props.subject : "owner";
+
+    const limit = await checkRateLimit(env, subject, new Date());
+    if (!limit.allowed) {
+      logRequest({
+        path: "/mcp",
+        method: request.method,
+        subject,
+        status: 429,
+        ms: Date.now() - started,
+        rateLimited: true,
+      });
+      return new Response(JSON.stringify({ error: "rate limit exceeded" }), {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "retry-after": String(limit.resetSeconds),
+        },
+      });
+    }
+
+    const handler = createMcpHandler(() =>
+      createServer(toolContext(env, () => new Date(), subject)),
+    );
+    const res = await handler(request, env, ctx);
+
+    logRequest({
+      path: "/mcp",
+      method: request.method,
+      subject,
+      status: res.status,
+      ms: Date.now() - started,
     });
-    return handler(request, env, ctx);
+    return res;
   },
 };
 
@@ -29,17 +62,7 @@ const defaultHandler = {
     }
 
     if (url.pathname === "/health") {
-      const runs = await new IngestRepo(env.DB).latest().catch(() => []);
-      return Response.json({
-        ok: true,
-        now: new Date().toISOString(),
-        providers: {
-          fantasypros: env.FANTASYPROS_KEY ? "configured" : "absent",
-          odds: env.ODDS_API_KEY ? "configured" : "absent",
-          openweather: env.OPENWEATHER_KEY ? "configured" : "absent",
-        },
-        ingest: runs,
-      });
+      return health(env);
     }
 
     if (url.pathname === "/") {
@@ -52,6 +75,42 @@ const defaultHandler = {
     return new Response("Not found", { status: 404 });
   },
 };
+
+/**
+ * Freshness per source, read from the ingest log rather than guessed. Public and
+ * deliberately free of roster data, so it can be checked without signing in.
+ */
+async function health(env: Env): Promise<Response> {
+  const now = new Date();
+  const [runs, playerCount, playersAsOf, newsAsOf] = await Promise.all([
+    new IngestRepo(env.DB).latest().catch(() => []),
+    new PlayerRepo(env.DB).count().catch(() => 0),
+    new PlayerRepo(env.DB).freshness().catch(() => null),
+    new NewsRepo(env.DB).freshness().catch(() => null),
+  ]);
+
+  const ageHours = (iso: string | null): number | null =>
+    iso ? Math.round(((now.getTime() - Date.parse(iso)) / 3600000) * 10) / 10 : null;
+
+  return Response.json({
+    ok: true,
+    now: now.toISOString(),
+    counts: { players: playerCount },
+    freshness: {
+      players: { asOf: playersAsOf, ageHours: ageHours(playersAsOf) },
+      news: { asOf: newsAsOf, ageHours: ageHours(newsAsOf) },
+    },
+    providers: {
+      sleeper: "keyless",
+      nflverse: "keyless",
+      "open-meteo": "keyless",
+      rss: "keyless",
+      fantasypros: env.FANTASYPROS_KEY ? "configured" : "absent",
+      odds: env.ODDS_API_KEY ? "configured" : "absent (nflverse supplies lines)",
+    },
+    ingest: runs.map((r) => ({ ...r, ageHours: ageHours(r.finishedAt) })),
+  });
+}
 
 const provider = new OAuthProvider<Env>({
   apiRoute: "/mcp",
