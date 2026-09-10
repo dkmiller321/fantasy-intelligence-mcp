@@ -27,11 +27,18 @@ counters. Biome for lint and format. Vitest with `@cloudflare/vitest-pool-worker
 
 ## Layering
 
-`mcp/` -> `engine/`, `storage/`, `providers/`
-`engine/` -> `domain/` and `engine/` only. Pure: no `fetch`, no `env`, no `Date.now()`.
-             Time is always a parameter.
-`providers/` -> never imports `engine/`.
-`storage/` -> `domain/` only.
+`mcp/`       -> `engine/`, `storage/`, `providers/`, `ids/`, `jobs/`
+`engine/`    -> `domain/`, `engine/`, and `ids/`. Pure: no `fetch`, no `env`, no
+                `Date.now()`. Time is always a parameter.
+`providers/` -> `domain/`, `ids/`. Never `engine/` or `storage/`.
+`storage/`   -> `domain/` only.
+`ids/`       -> `domain/` only.
+
+`ids/` is a dependency-free leaf of pure normalization (names, teams, positions) that
+both the engine and the providers legitimately need, so it is an allowed import for
+both rather than duplicated in each. Parsing a provider's wire format belongs in
+`providers/`, not in `engine/`: the engine classifies and matches, it does not know
+what RSS looks like.
 
 ## The league is IDP dynasty
 

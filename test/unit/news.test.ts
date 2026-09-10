@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyImpact, dedupeKey, matchPlayers, parseRss } from "../../src/engine/news";
+import { classifyImpact, dedupeKey, matchPlayers } from "../../src/engine/news";
+import { parseRss } from "../../src/providers/news/rss";
 import cbs from "../fixtures/news/cbs.xml?raw";
 import espn from "../fixtures/news/espn.xml?raw";
 import pft from "../fixtures/news/pft.xml?raw";

@@ -1,4 +1,3 @@
-import { parseRss, type RawItem } from "../../engine/news";
 import type { Provider, ProviderHealth } from "../types";
 
 /**
@@ -14,8 +13,53 @@ export const FEEDS = [
   { source: "cbssports", url: "https://www.cbssports.com/rss/headlines/nfl/" },
 ] as const;
 
+export interface RawItem {
+  title: string;
+  link: string | null;
+  description: string | null;
+  publishedAt: string | null;
+}
+
 export interface FetchedItem extends RawItem {
   source: string;
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;|&#x27;/gi, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/<[^>]+>/g, "")
+    .trim();
+}
+
+function tag(block: string, name: string): string | null {
+  // Namespaced siblings such as <dc:creator> must not satisfy <creator>.
+  const m = block.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`));
+  return m?.[1] ? decodeEntities(m[1]) : null;
+}
+
+/** Regex rather than a DOM parser: Workers has no XML DOM, and RSS is shallow. */
+export function parseRss(xml: string): RawItem[] {
+  const out: RawItem[] = [];
+  const blocks = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/g) ?? [];
+  for (const block of blocks) {
+    const title = tag(block, "title");
+    if (!title) continue;
+    const date = tag(block, "pubDate") ?? tag(block, "published") ?? tag(block, "updated");
+    const parsed = date ? new Date(date) : null;
+    out.push({
+      title,
+      link: tag(block, "link"),
+      description: tag(block, "description"),
+      publishedAt: parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : null,
+    });
+  }
+  return out;
 }
 
 export class RssNewsProvider implements Provider {
