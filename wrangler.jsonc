@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fantasy-intelligence-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-22",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "fantasy", "database_id": "633dc735-72ee-4430-9f06-807dc87a0279" }
+  ],
+  "kv_namespaces": [
+    { "binding": "CACHE", "id": "3ea81ba550af44d1be9bcb7f315157de" },
+    { "binding": "OAUTH_KV", "id": "7201bd4c8694402889799de4665331ed" }
+  ],
+  "vars": {
+    "SLEEPER_USERNAME": "kmills321",
+    "DEFAULT_LEAGUE_ID": "1340893699625717760"
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *", "0 */6 * * *", "0 9 * * *", "0 6 * * 2"]
+  }
+}

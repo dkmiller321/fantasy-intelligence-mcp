@@ -1,0 +1,29 @@
+name: nflverse ETL
+
+# nflverse publishes updated stats early in the week; run after they land.
+on:
+  schedule:
+    - cron: "0 11 * * 3"
+  workflow_dispatch:
+    inputs:
+      seasons:
+        description: Comma-separated seasons to load
+        required: false
+        default: "2025,2026"
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Load nflverse data into D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SEASONS: ${{ inputs.seasons }}
+        run: npm run etl -- --seasons "${SEASONS:-2025,2026}" --remote

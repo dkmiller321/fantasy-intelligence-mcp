@@ -1,0 +1,35 @@
+{
+  "name": "fantasy-intelligence-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "db:migrate": "wrangler d1 migrations apply fantasy --remote",
+    "db:migrate:local": "wrangler d1 migrations apply fantasy --local",
+    "etl": "tsx scripts/nflverse-etl.ts",
+    "fixtures": "tsx scripts/refresh-fixtures.ts",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^0.10.3",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "agents": "^0.22.0",
+    "zod": "^4.6.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260910.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.131.0"
+  }
+}

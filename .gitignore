@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+dist/
+.dev.vars
+*.local
+.DS_Store
+SECRETS.local.md
+worker-configuration.d.ts

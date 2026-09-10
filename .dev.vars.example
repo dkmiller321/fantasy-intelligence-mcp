@@ -1,0 +1,8 @@
+# Owner-only OAuth approval password. Generate a strong one; set in prod with:
+#   wrangler secret put OWNER_PASSWORD
+OWNER_PASSWORD=change-me
+
+# Optional providers. Adapters stay dark unless these are set.
+FANTASYPROS_KEY=
+ODDS_API_KEY=
+OPENWEATHER_KEY=
