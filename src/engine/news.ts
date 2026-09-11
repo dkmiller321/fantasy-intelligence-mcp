@@ -63,34 +63,100 @@ export interface NameIndexEntry {
 }
 
 /**
- * Match a headline to players by normalized full name, falling back to a surname only
- * when it is unambiguous across the index. Guessing on a shared surname would attach
- * news to the wrong player, which is worse than attaching it to none.
+ * Words of a headline, lowercased and stripped of punctuation but kept separate.
+ * `normalizeName` deliberately removes whitespace, which destroys the boundaries needed
+ * to reassemble candidate names.
  */
-export function matchPlayers(
+export function normalizeWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 0);
+}
+
+export interface NameIndex {
+  byFullName: Map<string, string>;
+  /** Surname to canonical id, or null where more than one player shares it. */
+  byLastName: Map<string, string | null>;
+}
+
+/**
+ * Built once per run, then reused for every headline.
+ *
+ * The previous matcher scanned all ~1,950 players for each of ~90 headlines, which
+ * measured 20 ms of CPU on its own against a 10 ms cron budget: the Worker was killed
+ * mid-run, so neither the success nor the failure path ever executed and every job row
+ * was left at "running" (DECISIONS D22).
+ */
+export function buildNameIndex(entries: readonly NameIndexEntry[]): NameIndex {
+  const byFullName = new Map<string, string>();
+  const byLastName = new Map<string, string | null>();
+
+  for (const e of entries) {
+    if (e.searchName.length >= 8) byFullName.set(e.searchName, e.canonicalId);
+    if (e.lastName.length >= 5) {
+      // A surname already present belongs to more than one player, so it identifies
+      // nobody. Attaching news to the wrong player is worse than attaching it to none.
+      byLastName.set(e.lastName, byLastName.has(e.lastName) ? null : e.canonicalId);
+    }
+  }
+
+  return { byFullName, byLastName };
+}
+
+/**
+ * Match by reassembling adjacent words into candidate names and looking them up, rather
+ * than testing every player against the text. Names in these feeds are two or three words,
+ * so bigrams and trigrams cover them.
+ */
+export function matchPlayersIndexed(
   title: string,
   description: string | null,
-  index: readonly NameIndexEntry[],
+  index: NameIndex,
 ): string[] {
-  const haystack = normalizeName(`${title} ${description ?? ""}`);
+  const words = normalizeWords(`${title} ${description ?? ""}`);
   const hits = new Set<string>();
 
-  for (const entry of index) {
-    if (entry.searchName.length >= 8 && haystack.includes(entry.searchName)) {
-      hits.add(entry.canonicalId);
+  for (let i = 0; i < words.length; i++) {
+    const a = words[i] as string;
+    const b = words[i + 1];
+    const c = words[i + 2];
+
+    if (b !== undefined) {
+      const bigram = a + b;
+      const hit = index.byFullName.get(bigram);
+      if (hit) hits.add(hit);
+
+      if (c !== undefined) {
+        const trigram = bigram + c;
+        const triHit = index.byFullName.get(trigram);
+        if (triHit) hits.add(triHit);
+      }
     }
   }
   if (hits.size > 0) return [...hits];
 
-  // No full-name hit: try surnames that identify exactly one player.
-  const counts = new Map<string, number>();
-  for (const e of index) counts.set(e.lastName, (counts.get(e.lastName) ?? 0) + 1);
-  for (const entry of index) {
-    if (entry.lastName.length < 5) continue;
-    if (counts.get(entry.lastName) !== 1) continue;
-    if (haystack.includes(entry.lastName)) hits.add(entry.canonicalId);
+  // No full name present: fall back to surnames that identify exactly one player.
+  for (const w of words) {
+    const hit = index.byLastName.get(w);
+    if (hit) hits.add(hit);
   }
   return [...hits];
+}
+
+/**
+ * Retained for callers holding a plain list. Builds the index and delegates, so there is
+ * one matching implementation rather than two that can drift.
+ */
+export function matchPlayers(
+  title: string,
+  description: string | null,
+  entries: readonly NameIndexEntry[],
+): string[] {
+  return matchPlayersIndexed(title, description, buildNameIndex(entries));
 }
 
 /** Stable key so the same story from two feeds is stored once. */

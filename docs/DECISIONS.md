@@ -313,3 +313,39 @@ the projections join return one row per source, so the same free agent appeared 
 the waiver list and the replacement-level pool double-counted; both queries now group by
 player. Usage trends still compute nothing in week 1, because two three-week windows do
 not exist yet — that is correct, not broken.
+
+## D22 — Cron jobs were failing silently; the cause was write budget, not CPU
+Every scheduled run for a full day sat at status `running`: 45 rows, no successes, no
+errors, and `/health` reporting only that data was getting old. Production logs showed
+the actual cause:
+
+```
+"*/15 * * * *" @ 9:15:46 AM - Exception Thrown
+Error: D1_ERROR: exceeded D1's free tier daily row write limit
+```
+
+The failure mode is worth stating plainly, because it defeats the monitoring it was
+supposed to feed. `IngestRepo` wrote a `running` row at the start and updated it at the
+end. When D1 is over its write limit the opening write still succeeds, the job then fails,
+and **the closing write fails too** — so the run is stranded mid-state and the health
+endpoint cannot tell "failing every fifteen minutes" from "never scheduled".
+
+Three changes:
+
+1. **One row per run, written once at the end**, carrying the terminal status. The
+   stranded-row state no longer exists, and these jobs cost half the writes.
+2. **Failures are logged before they are recorded.** When the failure is D1 itself, the
+   log line is the only evidence that will survive.
+3. **`/health` reports failures**, not just successes.
+
+The underlying cause was self-inflicted: `sync-players` rewrote all 9,886 players and
+~44,000 id rows on every run regardless of whether anything had changed, consuming about
+half the daily budget and starving the small jobs. It now compares a signature per player
+and writes only what differs — **38 rows instead of 9,886**, and 6 id rows instead of
+8,036. Daily cost falls from roughly 54,000 writes to 44.
+
+Separately, the news matcher was also over budget on CPU: scanning ~1,950 players for each
+of ~90 headlines measured 20 ms against a 10 ms ceiling. It now builds a lookup index once
+and reassembles adjacent words into candidate names, and headlines already stored are
+skipped before any matching happens. Measured 20 ms -> 0.95 ms, and 0.08 ms in steady
+state. That was a real second defect; it simply was not the one causing the stuck rows.

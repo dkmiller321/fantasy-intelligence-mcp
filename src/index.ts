@@ -82,8 +82,9 @@ const defaultHandler = {
  */
 async function health(env: Env): Promise<Response> {
   const now = new Date();
-  const [runs, playerCount, playersAsOf, newsAsOf] = await Promise.all([
+  const [runs, failures, playerCount, playersAsOf, newsAsOf] = await Promise.all([
     new IngestRepo(env.DB).latest().catch(() => []),
+    new IngestRepo(env.DB).failures().catch(() => []),
     new PlayerRepo(env.DB).count().catch(() => 0),
     new PlayerRepo(env.DB).freshness().catch(() => null),
     new NewsRepo(env.DB).freshness().catch(() => null),
@@ -109,6 +110,9 @@ async function health(env: Env): Promise<Response> {
       odds: env.ODDS_API_KEY ? "configured" : "absent (nflverse supplies lines)",
     },
     ingest: runs.map((r) => ({ ...r, ageHours: ageHours(r.finishedAt) })),
+    // Surfaced rather than only reporting what succeeded: a job that has been failing all
+    // day otherwise looks identical to one that simply has not run.
+    failures: failures.map((f) => ({ ...f, ageHours: ageHours(f.at) })),
   });
 }
 

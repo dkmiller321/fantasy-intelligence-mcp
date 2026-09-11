@@ -11,7 +11,7 @@
 import type { Position } from "../src/domain/types";
 import { canonicalFromSleeper, resolveCanonicalId } from "../src/ids/canonical";
 import { normalizeName, normalizePosition, normalizeTeam } from "../src/ids/normalize";
-import { csvToObjects, fetchText, loadRows, naToNull, parseArgs, sql } from "./lib/d1";
+import { csvToObjects, fetchText, loadRows, naToNull, parseArgs, queryD1, sql } from "./lib/d1";
 
 const PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl";
 const CROSSWALK_URL = "https://github.com/dynastyprocess/data/raw/master/files/db_playerids.csv";
@@ -70,6 +70,7 @@ function mapStatus(raw: string | null | undefined, team: string | null): string 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const remote = Boolean(args.remote);
+  const db = "fantasy";
   console.log(`sync-players (${remote ? "remote" : "local"} D1)`);
 
   const crosswalkCsv = await fetchText(CROSSWALK_URL, "db_playerids.csv");
@@ -96,9 +97,32 @@ async function main(): Promise<void> {
   const players = JSON.parse(playersJson) as Record<string, SleeperPlayer>;
   const now = new Date().toISOString();
 
+  // Existing state, so only genuine changes are written. Rewriting all ~9,900 players and
+  // ~44,000 id rows daily consumed roughly half of D1's 100,000 free daily writes and
+  // starved the 15-minute news job, which then failed silently (DECISIONS D22).
+  const existingPlayers = new Map<string, string>();
+  for (const r of queryD1<{ canonical_id: string; sig: string }>(
+    db,
+    remote,
+    `SELECT canonical_id, name || '|' || COALESCE(team,'') || '|' || status || '|' ||
+       COALESCE(injury_status,'') || '|' || COALESCE(injury_body_part,'') || '|' ||
+       COALESCE(depth_chart_order,'') || '|' || COALESCE(age,'') AS sig FROM players`,
+  )) {
+    existingPlayers.set(r.canonical_id, r.sig);
+  }
+  const existingIds = new Set(
+    queryD1<{ k: string }>(
+      db,
+      remote,
+      "SELECT source || '|' || external_id || '|' || canonical_id AS k FROM player_ids",
+    ).map((r) => r.k),
+  );
+  console.log(`  existing: ${existingPlayers.size} players, ${existingIds.size} id rows`);
+
   const rows: string[] = [];
   let unresolved = 0;
   let considered = 0;
+  let unchanged = 0;
 
   for (const [sleeperId, p] of Object.entries(players)) {
     const fantasyPositions = (p.fantasy_positions ?? [])
@@ -119,6 +143,20 @@ async function main(): Promise<void> {
     if (!name) continue;
     const team = normalizeTeam(p.team);
     const injuryUpdated = p.news_updated ? new Date(p.news_updated).toISOString() : null;
+
+    const signature = [
+      name,
+      team ?? "",
+      mapStatus(p.status, team),
+      mapInjury(p.injury_status) ?? "",
+      p.injury_body_part ?? "",
+      p.depth_chart_order ?? "",
+      p.age ?? "",
+    ].join("|");
+    if (existingPlayers.get(canonicalId) === signature) {
+      unchanged++;
+      continue;
+    }
 
     rows.push(
       `INSERT INTO players (canonical_id, sleeper_id, gsis_id, name, search_name, position,
@@ -151,6 +189,7 @@ async function main(): Promise<void> {
       ["rotowire", p.rotowire_id],
     ] as const) {
       if (value === null || value === undefined || value === "") continue;
+      if (existingIds.has(`${source}|${String(value)}|${canonicalId}`)) continue;
       extIds.push(
         `INSERT INTO player_ids (canonical_id, source, external_id) VALUES (${sql(canonicalId)}, ${sql(source)}, ${sql(String(value))}) ON CONFLICT(source, external_id) DO UPDATE SET canonical_id=excluded.canonical_id;`,
       );
@@ -160,6 +199,7 @@ async function main(): Promise<void> {
   // Crosswalk ESPN ids, for players Sleeper did not supply one for.
   let addedEspn = 0;
   for (const [espnId, canonicalId] of espnToCanonical) {
+    if (existingIds.has(`espn|${espnId}|${canonicalId}`)) continue;
     extIds.push(
       `INSERT INTO player_ids (canonical_id, source, external_id) VALUES (${sql(canonicalId)}, 'espn', ${sql(espnId)}) ON CONFLICT(source, external_id) DO UPDATE SET canonical_id=excluded.canonical_id;`,
     );
@@ -167,12 +207,11 @@ async function main(): Promise<void> {
   }
   console.log(`  espn ids from crosswalk: ${addedEspn}`);
 
-  console.log(`  fantasy-relevant players: ${considered}`);
+  console.log(`  fantasy-relevant players: ${considered} (${unchanged} unchanged, skipped)`);
   console.log(
     `  unresolved canonical ids: ${unresolved} (${((unresolved / considered) * 100).toFixed(1)}%)`,
   );
 
-  const db = "fantasy";
   loadRows(rows, { database: db, remote, label: "players", batchSize: 400 });
   loadRows(extIds, { database: db, remote, label: "player_ids", batchSize: 800 });
 

@@ -1,4 +1,10 @@
-import { classifyImpact, dedupeKey, matchPlayers, type NameIndexEntry } from "../engine/news";
+import {
+  buildNameIndex,
+  classifyImpact,
+  dedupeKey,
+  matchPlayersIndexed,
+  type NameIndexEntry,
+} from "../engine/news";
 import type { Env } from "../env";
 import { normalizeName } from "../ids/normalize";
 import { RssNewsProvider } from "../providers/news/rss";
@@ -14,30 +20,52 @@ export async function syncNews(env: Env, now: Date): Promise<number> {
   const items = await provider.fetchAll();
   if (items.length === 0) return 0;
 
-  // Only players who can actually be rostered are candidates for matching, which keeps
-  // the index small enough to scan per headline.
+  // Deduplicate before doing any matching work. Most of a run's ~90 headlines were
+  // already stored on the previous run fifteen minutes ago, so in steady state only a
+  // handful are new and the expensive path is skipped entirely.
+  const seen = new Set<string>();
+  const fresh: { item: (typeof items)[number]; key: string }[] = [];
+  for (const item of items) {
+    const key = dedupeKey(item.title);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    fresh.push({ item, key });
+  }
+
+  const keys = [...seen];
+  const known = new Set<string>();
+  for (let i = 0; i < keys.length; i += 90) {
+    const chunk = keys.slice(i, i + 90);
+    const existing = await env.DB.prepare(
+      `SELECT dedupe_key FROM news_items WHERE dedupe_key IN (${chunk.map(() => "?").join(",")})`,
+    )
+      .bind(...chunk)
+      .all<{ dedupe_key: string }>();
+    for (const r of existing.results) known.add(r.dedupe_key);
+  }
+
+  const unseen = fresh.filter((f) => !known.has(f.key));
+  if (unseen.length === 0) return 0;
+
+  // Only players who can actually be rostered are matching candidates.
   const res = await env.DB.prepare(
     `SELECT canonical_id, search_name, name, team FROM players
      WHERE status = 'active' AND team IS NOT NULL`,
   ).all<{ canonical_id: string; search_name: string; name: string; team: string }>();
 
-  const index: NameIndexEntry[] = res.results.map((r) => ({
+  const entries: NameIndexEntry[] = res.results.map((r) => ({
     canonicalId: r.canonical_id,
     searchName: r.search_name,
     lastName: normalizeName(r.name.split(" ").slice(1).join(" ") || r.name),
     team: r.team,
   }));
+  const index = buildNameIndex(entries);
 
   const iso = now.toISOString();
-  const seen = new Set<string>();
   const toStore = [];
 
-  for (const item of items) {
-    const key = dedupeKey(item.title);
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    const playerIds = matchPlayers(item.title, item.description, index);
+  for (const { item, key } of unseen) {
+    const playerIds = matchPlayersIndexed(item.title, item.description, index);
     toStore.push({
       id: `${item.source}:${key}`.slice(0, 120),
       dedupeKey: key,
