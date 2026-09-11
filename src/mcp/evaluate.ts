@@ -246,11 +246,38 @@ export function evaluationCaveats(result: EvaluationResult): string[] {
     );
   }
 
-  const singleSource = players.some((p) => p.sources.length === 1);
-  if (singleSource) {
+  // Coverage is uneven by design: ESPN's public league has no defensive slots, so IDP is
+  // single-source while offence is not. Saying "single source" flatly would misdescribe
+  // half the roster in either direction (DECISIONS D20).
+  const single = players.filter((p) => p.points !== null && p.sources.length === 1);
+  if (single.length > 0) {
+    const idp = single.filter((p) => ["DL", "LB", "DB"].includes(p.position));
+    const offence = single.filter((p) => !["DL", "LB", "DB"].includes(p.position));
+
+    if (idp.length > 0) {
+      caveats.push(
+        `IDP projections come from Sleeper alone, because no free source covers defensive ` +
+          `players. Confidence for ${idp
+            .map((p) => p.name)
+            .slice(0, 5)
+            .join(", ")}` +
+          `${idp.length > 5 ? ` and ${idp.length - 5} others` : ""} is capped at ` +
+          `${CONFIG.singleSourceConfidenceCap}.`,
+      );
+    }
+    if (offence.length > 0) {
+      caveats.push(
+        `${offence.length} offensive players have only one projection source this week, ` +
+          `so their confidence is capped at ${CONFIG.singleSourceConfidenceCap}.`,
+      );
+    }
+  }
+
+  const blended = players.filter((p) => p.sources.length > 1);
+  if (blended.length > 0) {
     caveats.push(
-      "Projections come from a single source (Sleeper), so confidence is capped at " +
-        `${CONFIG.singleSourceConfidenceCap}.`,
+      `${blended.length} players have projections blended from ` +
+        `${[...new Set(blended.flatMap((p) => p.sources))].sort().join(" and ")}.`,
     );
   }
 

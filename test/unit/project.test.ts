@@ -18,13 +18,36 @@ describe("consensusProjection", () => {
     expect(c?.agreement).toBe(1);
   });
 
-  it("weights FantasyPros 0.6 against Sleeper 0.4", () => {
-    // (10 x 0.6 + 20 x 0.4) / 1.0 = 6 + 8 = 14
+  it("weights a multi-analyst consensus above a single vendor", () => {
+    // FantasyPros 0.6, Sleeper 0.35: (10 x 0.6 + 20 x 0.35) / 0.95 = 13 / 0.95
     const c = consensusProjection([
       { source: "fantasypros", points: 10 },
       { source: "sleeper", points: 20 },
     ]);
-    expect(c?.points).toBeCloseTo(14, 5);
+    expect(c?.points).toBeCloseTo(13 / 0.95, 5);
+    // The result leans toward the more heavily weighted source.
+    expect(c?.points).toBeLessThan(15);
+  });
+
+  it("weights ESPN and Sleeper evenly, since each is one house projection", () => {
+    // Equal weights, so the blend is the plain mean.
+    const c = consensusProjection([
+      { source: "espn", points: 12 },
+      { source: "sleeper", points: 18 },
+    ]);
+    expect(c?.points).toBeCloseTo(15, 5);
+    expect(c?.sources).toEqual(["espn", "sleeper"]);
+  });
+
+  it("blends all three when every source is present", () => {
+    const c = consensusProjection([
+      { source: "fantasypros", points: 10 },
+      { source: "espn", points: 20 },
+      { source: "sleeper", points: 20 },
+    ]);
+    // (10 x 0.6 + 20 x 0.35 + 20 x 0.35) / 1.3 = 20 / 1.3
+    expect(c?.points).toBeCloseTo(20 / 1.3, 5);
+    expect(c?.sources).toHaveLength(3);
   });
 
   it("reports lower agreement as sources diverge", () => {

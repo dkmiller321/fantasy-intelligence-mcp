@@ -239,3 +239,41 @@ placeholders returning zero. Left in place they would have looked scheduled whil
 nothing every night. They now run in `.github/workflows/daily.yml` alongside the player
 sync, with a `concurrency` group so two runs cannot race and exhaust D1's daily write
 allowance. The Worker keeps only news and weather, whose payloads genuinely fit.
+
+## D20 — ESPN is the second projection source, and it does not cover IDP
+SPEC section 8 caps confidence at 0.7 on a single source, which every recommendation was
+hitting because Sleeper was the only projection provider. FantasyPros remains unobtainable
+without an approved key (D18), but ESPN's public fantasy API turns out to serve projections
+keyless, and it returns a raw stat line rather than only a points total.
+
+Verified rather than assumed. ESPN keys stats by opaque numeric id, so the mapping was
+derived by reconstructing totals ESPN itself publishes:
+
+| Player, week 1 2026 | Reconstructed | ESPN reports |
+|---|---|---|
+| Amon-Ra St. Brown | 18.84 | 18.83 |
+| Josh Allen | 19.53 | 19.32 |
+
+Both land inside ESPN's own rounding, which is the evidence the ids are right. Points are
+then recomputed against this league's 68 keys, exactly as for Sleeper, so `appliedTotal`
+is never trusted.
+
+Two limits, both reported rather than hidden:
+
+- **No IDP.** A request filtered to defensive slots returns HTTP 400: ESPN's public default
+  league has no such slots. Seven of eighteen starting slots therefore stay single-source,
+  and `evaluationCaveats` now names the affected players instead of describing the whole
+  roster as single- or multi-source.
+- **Id matching needed the crosswalk.** Sleeper's own `espn_id` matched only 125 of 511
+  projections, 24%. The dynastyprocess crosswalk carries `espn_id` too and matches 94%;
+  the remainder are team D/ST, which this league does not roster. `sync-players` now loads
+  both sets of ids.
+
+Weights: FantasyPros 0.6 if ever available, ESPN 0.35, Sleeper 0.35. ESPN and Sleeper are
+each one house projection and neither deserves the edge; FantasyPros is a consensus of many
+analysts and does. Measured effect on a real comparison: confidence rose from 0.70 to 0.76
+and Hampton's projection moved from 17.9 to 19.3 as the two sources blended.
+
+ESPN is undocumented and unsupported, the same risk Sleeper's projections endpoint carries.
+It is isolated in `src/providers/espn/projections.ts`, reads only the public default league,
+and its loss costs the confidence lift and nothing else.

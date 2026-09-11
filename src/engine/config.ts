@@ -6,8 +6,12 @@
 export const CONFIG = {
   /** Source weights when several projections exist for the same player and week. */
   sourceWeights: {
+    // FantasyPros is a consensus of many analysts, so it outweighs any single vendor if
+    // a key is ever obtained. ESPN and Sleeper are each one house projection and are
+    // weighted evenly against each other (DECISIONS D20).
     fantasypros: 0.6,
-    sleeper: 0.4,
+    espn: 0.35,
+    sleeper: 0.35,
   } as Record<string, number>,
 
   /** A single source can never express more than this much confidence. */

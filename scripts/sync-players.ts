@@ -74,13 +74,23 @@ async function main(): Promise<void> {
 
   const crosswalkCsv = await fetchText(CROSSWALK_URL, "db_playerids.csv");
   const crosswalk = new Map<string, string>();
+  // ESPN id -> canonical, kept separately. Sleeper's own espn_id field is sparse for
+  // recent players: it matched only 24% of ESPN's projection slate, where the crosswalk
+  // matches 94% (DECISIONS D20).
+  const espnToCanonical = new Map<string, string>();
   const extIds: string[] = [];
+
   for (const row of csvToObjects(crosswalkCsv)) {
     const sleeperId = naToNull(row.sleeper_id);
     const gsis = naToNull(row.gsis_id);
     if (sleeperId && gsis) crosswalk.set(sleeperId, gsis);
+
+    const espnId = naToNull(row.espn_id);
+    if (espnId && (gsis || sleeperId)) {
+      espnToCanonical.set(espnId, gsis ?? canonicalFromSleeper(sleeperId as string));
+    }
   }
-  console.log(`  crosswalk pairs: ${crosswalk.size}`);
+  console.log(`  crosswalk pairs: ${crosswalk.size} sleeper, ${espnToCanonical.size} espn`);
 
   const playersJson = await fetchText(PLAYERS_URL, "players/nfl");
   const players = JSON.parse(playersJson) as Record<string, SleeperPlayer>;
@@ -146,6 +156,16 @@ async function main(): Promise<void> {
       );
     }
   }
+
+  // Crosswalk ESPN ids, for players Sleeper did not supply one for.
+  let addedEspn = 0;
+  for (const [espnId, canonicalId] of espnToCanonical) {
+    extIds.push(
+      `INSERT INTO player_ids (canonical_id, source, external_id) VALUES (${sql(canonicalId)}, 'espn', ${sql(espnId)}) ON CONFLICT(source, external_id) DO UPDATE SET canonical_id=excluded.canonical_id;`,
+    );
+    addedEspn++;
+  }
+  console.log(`  espn ids from crosswalk: ${addedEspn}`);
 
   console.log(`  fantasy-relevant players: ${considered}`);
   console.log(
