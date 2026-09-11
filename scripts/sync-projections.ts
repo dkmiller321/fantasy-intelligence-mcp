@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 /**
  * Sleeper projections -> D1, with points recomputed from the stat line under the
  * league's own scoring (DECISIONS D5, D6).
@@ -6,8 +8,10 @@
  */
 
 import { espnCovers, espnPosition, espnStatsToSleeper } from "../src/engine/espn-map";
+import { fantasyProsStatsToSleeper } from "../src/engine/fantasypros-map";
 import { scoreStatLine } from "../src/engine/scoring";
 import { EspnProjectionsProvider } from "../src/providers/espn/projections";
+import { FantasyProsProvider } from "../src/providers/fantasypros/projections";
 import { PROJECTION_POSITIONS } from "../src/providers/sleeper/projections";
 import { loadRows, parseArgs, queryD1, sql } from "./lib/d1";
 
@@ -58,6 +62,23 @@ function projectionRow(
      ON CONFLICT(player_id, season, week, source) DO UPDATE SET
        points=excluded.points, stat_line=excluded.stat_line,
        opponent=excluded.opponent, as_of=excluded.as_of;`.replace(/\s+/g, " ");
+}
+
+/**
+ * The key comes from the environment in CI, or from the gitignored local notes file when
+ * run by hand. It is never logged and never committed.
+ */
+function fantasyProsKey(): string | undefined {
+  if (process.env.FANTASYPROS_KEY?.trim()) return process.env.FANTASYPROS_KEY.trim();
+  try {
+    const line = readFileSync("SECRETS.local.md", "utf8")
+      .split(/\r?\n/)
+      .find((l) => /fantasypros api key/i.test(l));
+    const value = line?.split(":").slice(1).join(":").trim();
+    return value || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function main(): Promise<void> {
@@ -163,6 +184,76 @@ async function main(): Promise<void> {
     // A second source is an upgrade, not a dependency. Losing it costs the confidence
     // lift and nothing else.
     console.log(`  espn: unavailable (${err instanceof Error ? err.message : String(err)})`);
+  }
+
+  // Third source, and the only one that covers IDP. Optional: absent key means absent
+  // provider, and the engine blends whatever else exists (DECISIONS D23).
+  const fpKey = fantasyProsKey();
+  if (!FantasyProsProvider.isConfigured(fpKey)) {
+    console.log("  fantasypros: no key configured, skipped");
+  } else {
+    const fpRows = queryD1<{ external_id: string; canonical_id: string }>(
+      db,
+      remote,
+      "SELECT external_id, canonical_id FROM player_ids WHERE source = 'fantasypros'",
+    );
+    const canonicalByFp = new Map(fpRows.map((r) => [r.external_id, r.canonical_id]));
+    const fpByCanonical = new Map(fpRows.map((r) => [r.canonical_id, r.external_id]));
+    console.log(`  fantasypros id map: ${canonicalByFp.size}`);
+
+    // The quota is small and undocumented, so the request budget is spent where it buys
+    // the most: the owner's own roster first, then the top ten at each position, which
+    // together cover every player the engine is likely to be asked about.
+    const rostered = queryD1<{ canonical_id: string }>(
+      db,
+      remote,
+      `SELECT DISTINCT p.canonical_id FROM teams t
+       JOIN players p ON instr(t.player_ids, '"' || p.sleeper_id || '"') > 0
+       WHERE t.league_id = '${leagueId}' AND t.team_id = (
+         SELECT my_team_id FROM leagues WHERE id = '${leagueId}'
+       )`,
+    );
+    const rosterFpids = rostered
+      .map((r) => fpByCanonical.get(r.canonical_id))
+      .filter((x): x is string => !!x);
+
+    const fp = new FantasyProsProvider(fpKey, () => new Date());
+    let kept = 0;
+    let exhausted = false;
+
+    const ingest = (rowsIn: { fpid: string; stats: Record<string, number> }[]) => {
+      for (const row of rowsIn) {
+        const canonicalId = canonicalByFp.get(row.fpid);
+        if (!canonicalId) continue;
+        const line = fantasyProsStatsToSleeper(row.stats, scoring);
+        if (Object.keys(line).length === 0) continue;
+        const points = scoreStatLine(line, scoring).points;
+        rows.push(projectionRow(canonicalId, season, week, "fantasypros", points, line, null, now));
+        kept++;
+      }
+    };
+
+    try {
+      console.log(`  fantasypros: ${rosterFpids.length} rostered players, batches of 10`);
+      const roster = await fp.forPlayers(season, week, rosterFpids);
+      ingest(roster.projections);
+      exhausted = roster.quotaExhausted;
+
+      if (!exhausted && args["fp-top"] !== "false") {
+        const top = await fp.topAcrossPositions(season, week, [...POSITIONS]);
+        ingest(top.projections);
+        exhausted = top.quotaExhausted;
+      }
+    } catch (err) {
+      console.log(
+        `  fantasypros: unavailable (${err instanceof Error ? err.message : String(err)})`,
+      );
+    }
+
+    console.log(
+      `  fantasypros: ${kept} projections from ${fp.requestsMade} requests` +
+        (exhausted ? " (quota exhausted mid-run; partial data kept)" : ""),
+    );
   }
 
   console.log(`  total rows ${rows.length}`);

@@ -349,3 +349,47 @@ of ~90 headlines measured 20 ms against a 10 ms ceiling. It now builds a lookup 
 and reassembles adjacent words into candidate names, and headlines already stored are
 skipped before any matching happens. Measured 20 ms -> 0.95 ms, and 0.08 ms in steady
 state. That was a real second defect; it simply was not the one causing the stuck rows.
+
+## D23 — FantasyPros is integrated, and it is the only second source for IDP
+D18 recorded that the adapter could not be written without a key, because the SPEC
+requires adapters be built from a recorded real response. A key now exists, so it is
+built. It matters more than ESPN did: **FantasyPros covers individual defensive players**,
+which ESPN's public league cannot (D20), so it is the only way the seven IDP slots in this
+league ever get above the 0.7 single-source confidence cap.
+
+**`def_tackle` means solo tackles.** This was settled against ground truth rather than
+assumed, because the two readings differ by nearly a factor of two under this league's
+scoring. Jack Campbell actually averaged 10.28 points per game in 2025:
+
+| Reading | Projected | vs actual |
+|---|---|---|
+| solo tackles | 11.21 | +0.9, plausible |
+| combined tackles | 6.93 | −3.4, a third low for an every-down linebacker |
+
+The structural argument agrees: `def_assist` is a separate field, so counting assists
+inside `def_tackle` would double-count them.
+
+**The free tier is tightly limited, in two ways that shape the design.**
+
+- *Ten players per response.* Neither `limit`, `max`, `count` nor a multi-position
+  `positions=` filter widens it, and `/nfl/players` is capped identically, so the player
+  list cannot be enumerated from the API at all. Specific players can be fetched by
+  FantasyPros id, and the dynastyprocess crosswalk supplies those ids for 4,851 players.
+- *An undocumented request quota.* Exceeding it returns `429 {"message":"Limit Exceeded"}`
+  with no rate-limit headers, and it persists for far longer than a throttle, so it is a
+  daily budget rather than a rate. Roughly forty exploratory calls exhausted one day's
+  worth. The spec calls this "the free limited public API" and documents no numbers.
+
+The adapter is therefore deliberately frugal and spends its budget where it buys most:
+the owner's own 42-player roster first (41 have a FantasyPros id, five batched requests),
+then the top ten at each of the eight positions. About thirteen requests for a full
+refresh. Hitting the quota mid-run stops cleanly and keeps whatever was already collected,
+because a partial second source still lifts confidence for the players it covered.
+
+Weights are unchanged from D20: FantasyPros 0.6 as a consensus of many analysts, ESPN and
+Sleeper 0.35 each as single house projections.
+
+`/health` now reports projection coverage per source from the stored rows rather than from
+which environment variables are set. A key can be present while the source supplied
+nothing, and the ingest scripts hold keys the Worker never sees, so the old check could
+report "configured" for a source contributing no data.

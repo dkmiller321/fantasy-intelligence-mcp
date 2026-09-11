@@ -256,13 +256,12 @@ export function evaluationCaveats(result: EvaluationResult): string[] {
 
     if (idp.length > 0) {
       caveats.push(
-        `IDP projections come from Sleeper alone, because no free source covers defensive ` +
-          `players. Confidence for ${idp
+        `${idp.length} defensive players have only one projection source this week, so ` +
+          `their confidence is capped at ${CONFIG.singleSourceConfidenceCap}: ${idp
             .map((p) => p.name)
             .slice(0, 5)
             .join(", ")}` +
-          `${idp.length > 5 ? ` and ${idp.length - 5} others` : ""} is capped at ` +
-          `${CONFIG.singleSourceConfidenceCap}.`,
+          `${idp.length > 5 ? ` and ${idp.length - 5} others` : ""}.`,
       );
     }
     if (offence.length > 0) {

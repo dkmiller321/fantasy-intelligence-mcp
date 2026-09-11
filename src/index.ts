@@ -82,13 +82,34 @@ const defaultHandler = {
  */
 async function health(env: Env): Promise<Response> {
   const now = new Date();
-  const [runs, failures, playerCount, playersAsOf, newsAsOf] = await Promise.all([
-    new IngestRepo(env.DB).latest().catch(() => []),
-    new IngestRepo(env.DB).failures().catch(() => []),
-    new PlayerRepo(env.DB).count().catch(() => 0),
-    new PlayerRepo(env.DB).freshness().catch(() => null),
-    new NewsRepo(env.DB).freshness().catch(() => null),
-  ]);
+  const [runs, failures, playerCount, playersAsOf, newsAsOf, projectionSources] = await Promise.all(
+    [
+      new IngestRepo(env.DB).latest().catch(() => []),
+      new IngestRepo(env.DB).failures().catch(() => []),
+      new PlayerRepo(env.DB).count().catch(() => 0),
+      new PlayerRepo(env.DB).freshness().catch(() => null),
+      new NewsRepo(env.DB).freshness().catch(() => null),
+      env.DB.prepare(
+        `SELECT source, COUNT(*) AS n, MAX(as_of) AS as_of FROM projections
+         WHERE season = (SELECT MAX(season) FROM projections) GROUP BY source`,
+      )
+        .all<{ source: string; n: number; as_of: string }>()
+        .then((r) => r.results)
+        .catch(() => []),
+    ],
+  );
+
+  const sources: Record<string, unknown> = {
+    sleeper: "keyless",
+    nflverse: "keyless",
+    "open-meteo": "keyless",
+    rss: "keyless",
+    espn: "keyless",
+    odds: "not used (nflverse supplies lines)",
+  };
+  for (const s of projectionSources) {
+    sources[`projections:${s.source}`] = { players: s.n, asOf: s.as_of };
+  }
 
   const ageHours = (iso: string | null): number | null =>
     iso ? Math.round(((now.getTime() - Date.parse(iso)) / 3600000) * 10) / 10 : null;
@@ -101,14 +122,10 @@ async function health(env: Env): Promise<Response> {
       players: { asOf: playersAsOf, ageHours: ageHours(playersAsOf) },
       news: { asOf: newsAsOf, ageHours: ageHours(newsAsOf) },
     },
-    providers: {
-      sleeper: "keyless",
-      nflverse: "keyless",
-      "open-meteo": "keyless",
-      rss: "keyless",
-      fantasypros: env.FANTASYPROS_KEY ? "configured" : "absent",
-      odds: env.ODDS_API_KEY ? "configured" : "absent (nflverse supplies lines)",
-    },
+    // Reported from the data rather than from which environment variables are set: a key
+    // can be present while the source supplied nothing, and the ingest scripts hold some
+    // keys that the Worker itself never sees.
+    providers: sources,
     ingest: runs.map((r) => ({ ...r, ageHours: ageHours(r.finishedAt) })),
     // Surfaced rather than only reporting what succeeded: a job that has been failing all
     // day otherwise looks identical to one that simply has not run.

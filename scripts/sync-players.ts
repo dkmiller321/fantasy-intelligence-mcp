@@ -79,6 +79,9 @@ async function main(): Promise<void> {
   // recent players: it matched only 24% of ESPN's projection slate, where the crosswalk
   // matches 94% (DECISIONS D20).
   const espnToCanonical = new Map<string, string>();
+  // FantasyPros keys on its own ids and its API cannot enumerate players, so the
+  // crosswalk is the only way to ask it about a specific player (DECISIONS D23).
+  const fpToCanonical = new Map<string, string>();
   const extIds: string[] = [];
 
   for (const row of csvToObjects(crosswalkCsv)) {
@@ -90,8 +93,15 @@ async function main(): Promise<void> {
     if (espnId && (gsis || sleeperId)) {
       espnToCanonical.set(espnId, gsis ?? canonicalFromSleeper(sleeperId as string));
     }
+
+    const fpId = naToNull(row.fantasypros_id);
+    if (fpId && (gsis || sleeperId)) {
+      fpToCanonical.set(fpId, gsis ?? canonicalFromSleeper(sleeperId as string));
+    }
   }
-  console.log(`  crosswalk pairs: ${crosswalk.size} sleeper, ${espnToCanonical.size} espn`);
+  console.log(
+    `  crosswalk pairs: ${crosswalk.size} sleeper, ${espnToCanonical.size} espn, ${fpToCanonical.size} fantasypros`,
+  );
 
   const playersJson = await fetchText(PLAYERS_URL, "players/nfl");
   const players = JSON.parse(playersJson) as Record<string, SleeperPlayer>;
@@ -206,6 +216,16 @@ async function main(): Promise<void> {
     addedEspn++;
   }
   console.log(`  espn ids from crosswalk: ${addedEspn}`);
+
+  let addedFp = 0;
+  for (const [fpId, canonicalId] of fpToCanonical) {
+    if (existingIds.has(`fantasypros|${fpId}|${canonicalId}`)) continue;
+    extIds.push(
+      `INSERT INTO player_ids (canonical_id, source, external_id) VALUES (${sql(canonicalId)}, 'fantasypros', ${sql(fpId)}) ON CONFLICT(source, external_id) DO UPDATE SET canonical_id=excluded.canonical_id;`,
+    );
+    addedFp++;
+  }
+  console.log(`  fantasypros ids from crosswalk: ${addedFp}`);
 
   console.log(`  fantasy-relevant players: ${considered} (${unchanged} unchanged, skipped)`);
   console.log(

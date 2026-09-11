@@ -35,6 +35,8 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Optional. Absent key means the provider is skipped, not that the step fails.
+          FANTASYPROS_KEY: ${{ secrets.FANTASYPROS_KEY }}
         run: npm run sync:projections -- --remote
 
       - name: Sync depth charts and snap counts

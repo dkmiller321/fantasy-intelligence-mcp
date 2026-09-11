@@ -61,9 +61,10 @@ describe("owner-only OAuth", () => {
       freshness: Record<string, { asOf: string | null; ageHours: number | null }>;
     };
     expect(body.ok).toBe(true);
-    // Optional providers report as absent rather than breaking the endpoint.
-    expect(body.providers.odds).toContain("absent");
+    // Providers are described from the data, not from which env vars happen to be set.
+    expect(body.providers.odds).toContain("not used");
     expect(body.providers.sleeper).toBe("keyless");
+    expect(body.providers.espn).toBe("keyless");
     // Freshness is reported per source even when nothing has been ingested.
     expect(body.freshness).toHaveProperty("players");
     expect(body.freshness).toHaveProperty("news");
