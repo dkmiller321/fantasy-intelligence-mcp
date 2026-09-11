@@ -21,6 +21,7 @@ interface StatRow {
   stat_line: string;
   target_share: number | null;
   carries: number | null;
+  snap_share: number | null;
 }
 
 function toWeekRows(rows: readonly StatRow[]): WeekRow[] {
@@ -41,6 +42,7 @@ function toWeekRows(rows: readonly StatRow[]): WeekRow[] {
       points,
       targetShare: r.target_share,
       carries: r.carries,
+      snapShare: r.snap_share,
     });
   }
   return out;
@@ -60,7 +62,7 @@ async function main(): Promise<void> {
   console.log(`materialize season=${season} throughWeek=${week} prior=${priorSeason}`);
 
   const select = (s: number) =>
-    `SELECT s.player_id, s.season, s.week, s.opponent, s.stat_line, s.target_share, s.carries, p.position
+    `SELECT s.player_id, s.season, s.week, s.opponent, s.stat_line, s.target_share, s.carries, s.snap_share, p.position
      FROM player_week_stats s JOIN players p ON p.canonical_id = s.player_id
      WHERE s.season = ${s}`.replace(/\s+/g, " ");
 
@@ -98,6 +100,9 @@ async function main(): Promise<void> {
   const trendSql: string[] = [];
   for (const [playerId, rows] of byPlayer) {
     const metrics: [string, (r: WeekRow) => number | null | undefined][] = [
+      // Snap share first: for IDP it is the dominant usage signal, because a defender's
+      // scoring is almost entirely a function of how many snaps they are on the field for.
+      ["snap_share", (r) => r.snapShare],
       ["target_share", (r) => r.targetShare],
       ["carries", (r) => r.carries],
       ["points", (r) => r.points],

@@ -41,6 +41,7 @@ Until that is set, run the ETL locally with `npm run etl -- --remote`.
 | Recompute matchup grades | `npm run materialize -- --remote` | After every ETL |
 | Refresh projections | `npm run sync:projections -- --remote` | Daily in season |
 | Refresh player list and injuries | `npm run sync:players -- --remote` | Daily |
+| Depth charts and snap counts | `npm run sync:depth -- --seasons 2026 --remote` | Daily |
 | Rebuild stadium coordinates | `npm run seed:stadiums` | Rarely; only if a team moves |
 | Smoke-test a deploy | `npm run call -- get_nfl_state` | After every deploy |
 | Check freshness | `curl .../health` | Any time |
@@ -131,3 +132,20 @@ because a roster listing is inherently a list. The brief single-player answers a
 If a future change pushes a tool past a second, the cause is almost certainly a new
 aggregate being computed in the request rather than materialized. Move it to
 `scripts/materialize.ts`.
+
+## Depth charts and snap counts
+
+`npm run sync:depth -- --seasons 2026 --remote` loads both, and the daily workflow runs it.
+
+The depth chart file is a time series: 46 MB and half a million rows for one season,
+because the teams republish several times a day. The script keeps only the newest row per
+player and position, which is about 4,000 entries. If it ever seems slow, that download is
+why; there is no smaller published form.
+
+Snap counts key on Pro Football Reference ids rather than gsis, so they join through the
+dynastyprocess crosswalk. Roughly 4,700 rows a season do not match, almost all offensive
+linemen and special-teamers who are not in the crosswalk and cannot be rostered here
+anyway.
+
+Snap share only produces a trend once two three-week windows exist, so it reports nothing
+before week 6. That is correct rather than broken.

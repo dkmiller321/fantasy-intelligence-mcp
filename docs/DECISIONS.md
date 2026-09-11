@@ -277,3 +277,39 @@ and Hampton's projection moved from 17.9 to 19.3 as the two sources blended.
 ESPN is undocumented and unsupported, the same risk Sleeper's projections endpoint carries.
 It is isolated in `src/providers/espn/projections.ts`, reads only the public default league,
 and its loss costs the confidence lift and nothing else.
+
+## D21 — Depth charts and snap counts replace two proxies
+Two engine inputs were standing in for data that exists and is free.
+
+**Waiver opportunity** used Sleeper's `depth_chart_order`, which is coarse and often
+stale. nflverse publishes the teams' own depth charts keyed by `gsis_id`, so no name
+matching is involved. The 2026 file is 46 MB across 509,781 rows because it is a time
+series with several snapshots a day; only the newest row per player and position is kept,
+which distils to 4,162 current entries. A published rank of 1 now scores 1.0 for
+opportunity, rank 2 scores 0.5 because one injury promotes them, and the rest 0.15.
+
+**Usage trends had no snap data at all**, which mattered most for IDP: a defender's
+scoring is very nearly a function of how many snaps they are on the field for, and the
+weekly stats release does not carry snaps. `snap_counts` does, including `defense_pct`.
+It keys on Pro Football Reference ids, joined through the dynastyprocess crosswalk.
+
+Coverage is best exactly where it was most needed: of 2025 stat rows, DL 99%, DB 90%,
+LB 85%. 14,844 rows now carry snap counts.
+
+Materialized against a complete 2025 season the signal is the one worth having — the
+largest risers are players going from a bit part to every down:
+
+| Player | Snap share before | After |
+|---|---|---|
+| Justin Reid, DB | 0.03 | 0.99 |
+| Joe Andreessen, LB | 0.04 | 1.00 |
+| Kelee Ringo, DB | 0.07 | 1.00 |
+
+That is a starting job changing hands, which is the most actionable waiver signal an IDP
+league has, and it was previously invisible.
+
+Two regressions were caught while wiring this up. Adding a second projection source made
+the projections join return one row per source, so the same free agent appeared twice in
+the waiver list and the replacement-level pool double-counted; both queries now group by
+player. Usage trends still compute nothing in week 1, because two three-week windows do
+not exist yet — that is correct, not broken.

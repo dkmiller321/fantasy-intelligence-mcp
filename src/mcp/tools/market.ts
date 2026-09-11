@@ -52,6 +52,26 @@ const REPLACEMENT_FLOOR: Record<string, number> = {
   DB: 4,
 };
 
+/**
+ * Depth-chart rank as an opportunity score. A published starter is the strong signal; the
+ * immediate backup still matters because one injury promotes them. Beyond that the rank
+ * says little a projection does not already capture.
+ */
+function opportunityFor(publishedRank: number | null, sleeperOrder: number | null): number {
+  if (publishedRank !== null) {
+    if (publishedRank === 1) return 1;
+    if (publishedRank === 2) return 0.5;
+    return 0.15;
+  }
+  // No published entry: fall back to Sleeper's ordering, which is coarser.
+  return sleeperOrder === 1 ? 0.6 : 0.2;
+}
+
+function ordinal(n: number): string {
+  const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
+  return `${n}${suffix}`;
+}
+
 export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     "get_news",
@@ -191,15 +211,18 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
       const maxAdds = trending.reduce((a, t) => Math.max(a, t.count), 0);
 
       // Candidates: players with a projection this week who are not rostered.
+      // Grouped by player: with two projection sources the join yields a row per source,
+      // which previously put the same free agent in the list twice.
       const projected = await ctx.env.DB.prepare(
         `SELECT p.canonical_id, p.sleeper_id, p.gsis_id, p.name, p.search_name, p.position,
                 p.fantasy_positions, p.team, p.status, p.injury_status, p.injury_body_part,
                 p.injury_note, p.injury_updated_at, p.bye_week, p.depth_chart_order, p.age,
-                p.years_exp, p.updated_at, p.fetched_at
+                p.years_exp, p.updated_at, p.fetched_at, AVG(j.points) AS avg_points
          FROM projections j JOIN players p ON p.canonical_id = j.player_id
          WHERE j.season = ? AND j.week = ? AND p.status = 'active' AND p.team IS NOT NULL
          ${position ? "AND p.position = ?" : ""}
-         ORDER BY j.points DESC LIMIT 300`,
+         GROUP BY p.canonical_id
+         ORDER BY avg_points DESC LIMIT 300`,
       )
         .bind(...(position ? [season, String(week), position] : [season, String(week)]))
         .all<PlayerRow>();
@@ -220,6 +243,24 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
       }
 
       const result = await evaluatePlayers(ctx.env.DB, available.slice(0, 120), season, week);
+
+      // Real depth-chart rank, published by the teams, rather than Sleeper's
+      // depth_chart_order proxy (DECISIONS D21). Rank 1 at a position means the player
+      // ahead of them is unavailable, which is the actual reason a free agent matters.
+      const depthRank = new Map<string, { rank: number; posAbb: string }>();
+      const candidateIds = result.players.map((p) => p.canonicalId).slice(0, 120);
+      if (candidateIds.length > 0) {
+        const marks = candidateIds.map(() => "?").join(",");
+        const depth = await ctx.env.DB.prepare(
+          `SELECT player_id, pos_abb, MIN(pos_rank) AS pos_rank FROM depth_charts
+           WHERE season = ? AND player_id IN (${marks}) GROUP BY player_id`,
+        )
+          .bind(season, ...candidateIds)
+          .all<{ player_id: string; pos_abb: string; pos_rank: number }>();
+        for (const d of depth.results) {
+          depthRank.set(d.player_id, { rank: d.pos_rank, posAbb: d.pos_abb });
+        }
+      }
 
       /**
        * Value is measured against the owner's own lineup, not against the whole player
@@ -280,9 +321,10 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
               position: p.position,
               rosValue,
               usageTrend: usage,
-              // Depth-chart position stands in for opportunity: a listed starter on the
-              // wire usually means someone ahead of them is unavailable.
-              opportunity: row?.depth_chart_order === 1 ? 0.8 : 0.2,
+              opportunity: opportunityFor(
+                depthRank.get(p.canonicalId)?.rank ?? null,
+                row?.depth_chart_order ?? null,
+              ),
               trendingAdds: adds,
             },
             maxAdds,
@@ -294,7 +336,16 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
           }
           if (adds > 0) why.push(`${adds} adds across Sleeper in the last day`);
           if (pointsTrend?.label === "rising") why.push("scoring trending up");
-          if (row?.depth_chart_order === 1) why.push("listed first on the depth chart");
+          const depth = depthRank.get(p.canonicalId);
+          if (depth) {
+            why.push(
+              depth.rank === 1
+                ? `starting at ${depth.posAbb} on the published depth chart`
+                : `${ordinal(depth.rank)} at ${depth.posAbb}`,
+            );
+          } else if (row?.depth_chart_order === 1) {
+            why.push("listed first on the depth chart");
+          }
           if (p.matchupRank !== null && p.matchupRank <= 8) {
             why.push(`favourable matchup vs ${p.opponent}`);
           }
@@ -406,9 +457,10 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
                 fantasy_positions, team, status, injury_status, injury_body_part,
                 injury_note, injury_updated_at, bye_week, depth_chart_order, age,
                 years_exp, updated_at, fetched_at FROM (
-           SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.position ORDER BY j.points DESC) AS rn
+           SELECT p.*, ROW_NUMBER() OVER (PARTITION BY p.position ORDER BY AVG(j.points) DESC) AS rn
            FROM projections j JOIN players p ON p.canonical_id = j.player_id
            WHERE j.season = ? AND j.week = ? AND p.status = 'active' AND p.team IS NOT NULL
+           GROUP BY p.canonical_id
          ) WHERE rn <= 60`,
       )
         .bind(season, String(week))

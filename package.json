@@ -20,7 +20,8 @@
     "sync:projections": "tsx scripts/sync-projections.ts",
     "materialize": "tsx scripts/materialize.ts",
     "call": "tsx scripts/call-tool.ts",
-    "seed:stadiums": "tsx scripts/seed-stadiums.ts"
+    "seed:stadiums": "tsx scripts/seed-stadiums.ts",
+    "sync:depth": "tsx scripts/sync-depth-snaps.ts"
   },
   "dependencies": {
     "@cloudflare/workers-oauth-provider": "^0.10.3",

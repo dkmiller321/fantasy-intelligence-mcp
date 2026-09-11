@@ -12,6 +12,7 @@ export interface WeekRow {
   points: number;
   targetShare?: number | null;
   carries?: number | null;
+  snapShare?: number | null;
 }
 
 export interface DvpRow {
