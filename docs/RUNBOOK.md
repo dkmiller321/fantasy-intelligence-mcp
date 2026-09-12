@@ -21,12 +21,23 @@ The wrangler OAuth token on this machine cannot be used by Actions. Create a sco
 token instead.
 
 1. Cloudflare dashboard, My Profile, API Tokens, Create Token, Custom token.
-2. Permissions: `Account / D1 / Edit` and `Account / Workers Scripts / Edit`.
+2. Permission: **`Account` / `D1` / `Edit`**, and nothing else. Scope Account Resources
+   to this account only.
 3. In the GitHub repo, Settings, Secrets and variables, Actions, add:
    - `CLOUDFLARE_API_TOKEN` — the token
    - `CLOUDFLARE_ACCOUNT_ID` — `a3414090165dfede2987cc9167405765`
+   - `FANTASYPROS_KEY` — optional; without it that provider is skipped, not failed
 
-Until that is set, run the ETL locally with `npm run etl -- --remote`.
+D1 Edit is genuinely all that is needed, and deliberately so. No workflow deploys the
+Worker: every scheduled job runs `wrangler d1 execute --remote` and nothing else, which
+uses D1's query endpoint for reads and its import endpoint for the batched writes. Adding
+`Workers Scripts / Edit` would let a leaked CI token replace the running server, which is
+a much worse day than a leaked token that can only write rows this repo can rebuild.
+
+Deploys stay on the operator's own `wrangler login`, which is interactive and never
+leaves the machine.
+
+Until the token is set, run the syncs locally with `--remote`; see the table above.
 
 ### 3. Read the owner password
 
