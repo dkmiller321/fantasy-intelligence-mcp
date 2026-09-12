@@ -109,22 +109,34 @@ export const CONFIG = {
   },
 
   /**
-   * Early-season blend (DECISIONS D7). Prior-season data carries full weight in week 1
-   * and none from week 7, by which point the current season has a six-week window of
-   * its own. Linear in between.
+   * Prior-season blend (DECISIONS D7, revised in D24).
+   *
+   * Shrinkage rather than a decay to zero: the weight on the prior season is
+   * `k / (weeksPlayed + k)`, so the current season earns influence in proportion to how
+   * much of it has actually happened, and the prior never disappears entirely.
+   *
+   * `k` is the number of current-season games at which the two sources carry equal
+   * weight. It was fitted against 2024 and 2025 rather than chosen: the error curve is
+   * flat between k=9 and k=15, and 9 is taken as the most responsive value inside that
+   * range. The previous rule, decaying to zero by week 7, tested 7.1% worse.
    */
   priorSeasonBlend: {
-    fullPriorThroughWeek: 1,
-    noPriorFromWeek: 7,
+    regressionConstantGames: 9,
   },
 } as const;
 
-/** Fraction of a blended statistic that should come from the prior season. */
-export function priorSeasonWeight(week: number): number {
-  const { fullPriorThroughWeek, noPriorFromWeek } = CONFIG.priorSeasonBlend;
-  if (week <= fullPriorThroughWeek) return 1;
-  if (week >= noPriorFromWeek) return 0;
-  return (noPriorFromWeek - week) / (noPriorFromWeek - fullPriorThroughWeek);
+/**
+ * Fraction of a blended statistic that should come from the prior season.
+ *
+ * Defence-versus-position over a handful of games is a very noisy measurement: it depends
+ * heavily on which offences a team happened to face. The prior season is a full eighteen
+ * games and far steadier, so regressing toward it stays worthwhile deep into a season.
+ * Backtested on 2025, abandoning the prior at week 7 cost 14-28% more error per week.
+ */
+export function priorSeasonWeight(weeksPlayed: number): number {
+  const k = CONFIG.priorSeasonBlend.regressionConstantGames;
+  if (weeksPlayed <= 0) return 1;
+  return k / (weeksPlayed + k);
 }
 
 export function clamp(value: number, min: number, max: number): number {

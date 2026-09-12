@@ -28,6 +28,8 @@ function brief(p: EvaluatedPlayer) {
     matchupRank: p.matchupRank,
     impliedTeamTotal: p.impliedTeamTotal === null ? null : roundPoints(p.impliedTeamTotal),
     injury: p.injury === "healthy" ? null : p.injury,
+    // Surfaced on the player, not just in caveats, so it survives any summarising.
+    breakingNews: p.breakingNews.length > 0 ? p.breakingNews : null,
     eligible: p.eligible,
     trend: p.trend.find((t) => t.metric === "points")?.label ?? null,
   };

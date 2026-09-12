@@ -1,0 +1,41 @@
+name: Injury refresh
+
+# Injury designations drive the lineup eligibility gate, so staleness here is the most
+# expensive kind: a player ruled out on Sunday morning would otherwise still be started.
+#
+# This runs the same incremental player sync as the daily job. It is cheap on the
+# database side — typically a few dozen changed rows — and the cost is GitHub Actions
+# minutes, so the schedule is weighted toward when designations actually move.
+on:
+  schedule:
+    # Sunday 11:00-17:00 UTC, hourly. Inactives are announced ninety minutes before
+    # kickoff, so this is the window where a designation changes and matters same-day.
+    - cron: "0 11-17 * * 0"
+    # Thursday and Monday evenings, around those games.
+    - cron: "0 22-23 * * 1,4"
+    # Otherwise every six hours, to catch practice reports through the week.
+    - cron: "0 0,6,12,18 * * 2,3,5,6"
+  workflow_dispatch:
+
+# Never overlap with the daily refresh or another copy of this job: two concurrent runs
+# would double the database writes for no benefit.
+concurrency:
+  group: d1-writes
+  cancel-in-progress: false
+
+jobs:
+  injuries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Refresh player list and injury designations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run sync:players -- --remote

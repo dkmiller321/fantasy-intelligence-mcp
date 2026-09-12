@@ -45,11 +45,11 @@ export function defenseVsPosition(
   throughWeek: number,
 ): DvpRow[] {
   const priorW = priorSeasonWeight(throughWeek);
-  const windowStart = Math.max(1, throughWeek - CONFIG.matchup.windowWeeks + 1);
 
-  const current = accumulate(
-    currentRows.filter((r) => r.week >= windowStart && r.week <= throughWeek),
-  );
+  // Season to date rather than a rolling window. A six-week window was meant to capture
+  // recent form, but tested against 2025 it was slightly worse than using every game
+  // played: the extra sample is worth more than the recency (DECISIONS D24).
+  const current = accumulate(currentRows.filter((r) => r.week >= 1 && r.week <= throughWeek));
   const prior = accumulate(priorRows);
 
   const teams = new Set([...current.keys(), ...prior.keys()].map((k) => k.split("|")[0] as string));
@@ -84,7 +84,9 @@ export function defenseVsPosition(
         position,
         fpaPerGame: Math.round(t.fpa * 100) / 100,
         rank: i + 1,
-        window: CONFIG.matchup.windowWeeks,
+        // Games of current-season data behind this row, which is what the prior weight
+        // is a function of.
+        window: throughWeek,
         priorWeight: priorW,
       });
     });

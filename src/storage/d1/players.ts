@@ -94,10 +94,13 @@ export class PlayerRepo {
       WHERE search_name LIKE ?
         ${position ? "AND (position = ? OR fantasy_positions LIKE ?)" : ""}
       ORDER BY
+        -- Rosterable players first, ahead of any name-match quality. A free agent whose
+        -- surname happens to start the query outranked every actual starter before this:
+        -- searching "smith" returned an unsigned "Smith Vilbert" above DeVonta Smith.
+        CASE WHEN status = 'active' AND team IS NOT NULL THEN 0 ELSE 1 END,
         CASE WHEN search_name = ? THEN 0
              WHEN search_name LIKE ? THEN 1
              ELSE 2 END,
-        CASE WHEN status = 'active' AND team IS NOT NULL THEN 0 ELSE 1 END,
         COALESCE(depth_chart_order, 99),
         name
       LIMIT ?`;

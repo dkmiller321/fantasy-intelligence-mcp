@@ -393,3 +393,76 @@ Sleeper 0.35 each as single house projections.
 which environment variables are set. A key can be present while the source supplied
 nothing, and the ingest scripts hold keys the Worker never sees, so the old check could
 report "configured" for a source contributing no data.
+
+## D24 — The prior-season blend was wrong; it should shrink, not disappear
+D7 decayed the prior season's weight linearly to zero by week 7, on the reasoning that by
+then the current season has a six-week window of its own. That reasoning was mine, not
+evidence, and backtesting says it is wrong.
+
+Using 2024 as the prior and 2025 as the test season, for each week: blend the two, predict
+the following six weeks, and find the weight that would actually have minimised error.
+
+| Week | Best prior weight | Shipped | Penalty for shipping |
+|---|---|---|---|
+| 4 | 0.7 | 0.50 | +2.0% |
+| 7 | 0.6 | 0.00 | +14.3% |
+| 9 | 0.6 | 0.00 | +19.5% |
+| 10 | 0.7 | 0.00 | +28.4% |
+
+The optimum never falls below about 0.5, at any week, under either window. Defence versus
+position over a handful of games is a very noisy measurement — it depends heavily on which
+offences a team happened to face — while the prior season is a full eighteen games and far
+steadier. Regressing toward it keeps paying off.
+
+The replacement is standard shrinkage: `priorWeight = k / (weeksPlayed + k)`, where `k` is
+the number of current-season games at which both sources carry equal weight. Rules compared
+over weeks 1-12:
+
+| Rule | MAE | vs best |
+|---|---|---|
+| shrinkage k=12 | 3.4855 | best |
+| shrinkage k=9 | 3.4878 | +0.1% |
+| floor at 0.6 | 3.4902 | +0.1% |
+| floor at 0.5 | 3.5018 | +0.5% |
+| **shipped: linear to zero** | **3.7318** | **+7.1%** |
+
+`k=9` is taken. It is statistically indistinguishable from the nominal best, and being the
+more responsive value it errs toward noticing a defence that has genuinely changed — which
+matters because one pair of seasons cannot say how much roster turnover shifts this.
+
+The current-season window also widens from six weeks to season-to-date, worth a further
+1.8%. The six-week window was meant to capture recent form; the extra sample is worth more
+than the recency.
+
+Caveat on the evidence: this is one prior/test pair, because nflverse coverage and this
+project's scoring map only go back so far cheaply. The direction of the result is large
+and consistent across every week, but the exact constant is not precisely determined.
+
+## D25 — Freshness matters most where it was weakest
+Two problems, both found by asking what happens when news breaks on a Sunday morning.
+
+**Injury designations lagged by up to a day.** They arrive with the Sleeper player sync,
+which runs daily because the payload is 14.6 MB and cannot be parsed inside a Worker cron
+(D13). The news feed runs every fifteen minutes and would see a player ruled out hours
+before the designation caught up — but nothing connected the two, so `recommend_lineup`
+would happily start a player the newswire had already ruled out.
+
+Two changes. `evaluatePlayers` now reads high-impact headlines from the last 48 hours and
+attaches any that postdate a player's stored injury note, surfaced both on the player and
+as the *first* caveat, worded so it cannot be mistaken for a fantasy conclusion. And a
+separate workflow refreshes designations far more often than daily, weighted to when they
+actually move: hourly through Sunday 11:00-17:00 UTC, when inactives are announced ninety
+minutes before kickoff, around the Thursday and Monday games, and every six hours
+otherwise. The sync is incremental (D22), so the database cost is a few dozen rows.
+
+**Retired players were being reported as active.** Sleeper marks long-retired players
+`Active` — Dominique Rodgers-Cromartie and Jason McCourty both came back that way — and
+`mapStatus` trusted that field before checking whether the player had a team. The result
+was 6,820 "active" players against 1,952 who could actually be rostered, and a search for
+"smith" that returned an unsigned "Smith Vilbert" ahead of DeVonta Smith, Geno Smith and
+Roquan Smith, because the prefix match outranked the rosterable check.
+
+A player with no team cannot be rostered whatever the status field says, so the team check
+now comes first, and search ranks rosterable players ahead of name-match quality rather
+than after it. Active is now 1,951, and the same search returns ten players who are all on
+NFL rosters.

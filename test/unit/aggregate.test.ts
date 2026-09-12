@@ -41,42 +41,45 @@ describe("defenseVsPosition", () => {
     expect(out.find((r) => r.team === "SEA")?.rank).toBe(2);
   });
 
-  it("uses prior season alone in week 1, where the current season is empty", () => {
+  it("uses prior season alone when the current one has no data for that defence", () => {
     const prior = [
       row({ opponent: "KC", points: 18, week: 5, season: 2025 }),
       row({ opponent: "KC", points: 22, week: 6, season: 2025 }),
     ];
-    const out = defenseVsPosition([], prior, 1);
-    const kc = out.find((r) => r.team === "KC");
-    expect(kc?.priorWeight).toBe(1);
+    const kc = defenseVsPosition([], prior, 1).find((r) => r.team === "KC");
     expect(kc?.fpaPerGame).toBe(20);
   });
 
-  it("blends prior and current at week 4", () => {
-    // prior average 20, current average 10, prior weight 0.5 -> 15.
+  it("blends prior and current in proportion to games played", () => {
+    // prior 20, current 10, at week 4 the prior carries 9/13 of the weight.
     const prior = [row({ opponent: "KC", points: 20, week: 1, season: 2025 })];
     const current = [row({ opponent: "KC", points: 10, week: 4 })];
     const kc = defenseVsPosition(current, prior, 4).find((r) => r.team === "KC");
-    expect(kc?.priorWeight).toBeCloseTo(0.5, 5);
-    expect(kc?.fpaPerGame).toBeCloseTo(15, 5);
+    const w = 9 / 13;
+    expect(kc?.priorWeight).toBeCloseTo(w, 5);
+    expect(kc?.fpaPerGame).toBeCloseTo(w * 20 + (1 - w) * 10, 2);
   });
 
-  it("ignores the prior season from week 7", () => {
+  it("still leans on the prior deep into a season, but less", () => {
     const prior = [row({ opponent: "KC", points: 40, week: 1, season: 2025 })];
-    const current = [row({ opponent: "KC", points: 10, week: 7 })];
-    const kc = defenseVsPosition(current, prior, 7).find((r) => r.team === "KC");
-    expect(kc?.priorWeight).toBe(0);
-    expect(kc?.fpaPerGame).toBe(10);
+    const current = [row({ opponent: "KC", points: 10, week: 12 })];
+    const early = defenseVsPosition(current, prior, 2).find((r) => r.team === "KC");
+    const late = defenseVsPosition(current, prior, 12).find((r) => r.team === "KC");
+    expect(late?.priorWeight).toBeLessThan(early?.priorWeight as number);
+    expect(late?.priorWeight).toBeGreaterThan(0);
+    // Still pulled toward the prior's 40 rather than sitting on the current 10.
+    expect(late?.fpaPerGame).toBeGreaterThan(10);
   });
 
-  it("honours the six-week rolling window", () => {
+  it("counts every game played so far, not just a recent window", () => {
     const current = [
-      row({ opponent: "KC", points: 100, week: 1 }),
+      row({ opponent: "KC", points: 30, week: 1 }),
       row({ opponent: "KC", points: 10, week: 8 }),
     ];
-    // Through week 8 the window starts at week 3, so week 1 is excluded.
+    // Season to date beat a six-week window in backtesting: the extra sample is worth
+    // more than the recency (DECISIONS D24).
     const kc = defenseVsPosition(current, [], 8).find((r) => r.team === "KC");
-    expect(kc?.fpaPerGame).toBe(10);
+    expect(kc?.fpaPerGame).toBe(20);
   });
 
   it("keeps IDP positions separate from offensive ones", () => {

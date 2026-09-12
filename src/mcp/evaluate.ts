@@ -13,6 +13,7 @@ import {
   type SourceProjection,
 } from "../engine/project";
 import { AnalyticsRepo, type GameRow, indexDvp, indexGames } from "../storage/d1/analytics";
+import { NewsRepo } from "../storage/d1/news";
 import type { PlayerRow } from "../storage/d1/players";
 
 export interface EvaluatedPlayer {
@@ -41,12 +42,23 @@ export interface EvaluatedPlayer {
   sourceAgreement: number;
   trend: { metric: string; label: string; delta: number }[];
   recentPoints: number[];
+  /**
+   * High-impact headlines published more recently than the stored injury designation.
+   * Injury status comes from a daily sync, so a player ruled out this morning can still
+   * read as healthy; the news feed runs every fifteen minutes and catches it first
+   * (DECISIONS D25).
+   */
+  breakingNews: NewsHeadline[];
   evidence: Evidence[];
 }
+
+type NewsHeadline = { title: string; impact: string; publishedAt: string; source: string };
 
 export interface EvaluationContext {
   season: number;
   week: number;
+  /** When this evaluation ran, so caveats can age a headline against it. */
+  generatedAt: string;
   /** Blend weight actually used by the materialized DvP rows, for the caveat text. */
   priorWeight: number;
   /** Players with no projection row at all. */
@@ -68,17 +80,34 @@ export async function evaluatePlayers(
   rows: readonly PlayerRow[],
   season: number,
   week: number,
+  now: Date = new Date(),
 ): Promise<EvaluationResult> {
   const analytics = new AnalyticsRepo(db);
   const ids = rows.map((r) => r.canonical_id);
 
-  const [projections, dvpRows, gameRows, recent, trends] = await Promise.all([
+  // Two days is enough to catch anything that broke since the last projection refresh
+  // without dragging in last week's noise.
+  const newsSince = new Date(now.getTime() - 48 * 3600 * 1000).toISOString();
+
+  const [projections, dvpRows, gameRows, recent, trends, headlines] = await Promise.all([
     analytics.projections(ids, season, week),
     analytics.defenseVsPosition(season, week),
     analytics.games(season, week),
     analytics.recentPoints(ids, season, week, season - 1),
     analytics.usageTrends(ids, season, week),
+    // Fetched as one indexed query and filtered in memory: a LIKE per player over the
+    // whole table would not fit the request CPU budget.
+    new NewsRepo(db).recent({ since: newsSince, minImpact: "high", limit: 60 }).catch(() => []),
   ]);
+
+  const newsByPlayer = new Map<string, NewsHeadline[]>();
+  for (const item of headlines) {
+    for (const pid of item.playerIds) {
+      const list = newsByPlayer.get(pid) ?? [];
+      list.push(item);
+      newsByPlayer.set(pid, list);
+    }
+  }
 
   const dvp = indexDvp(dvpRows);
   const games = indexGames(gameRows);
@@ -141,6 +170,7 @@ export async function evaluatePlayers(
         sourceAgreement: 0,
         trend: trends.get(row.canonical_id) ?? [],
         recentPoints: history.slice(-6),
+        breakingNews: breakingFor(row, newsByPlayer),
         evidence: [
           {
             factor: "no projection available",
@@ -198,14 +228,42 @@ export async function evaluatePlayers(
       sourceAgreement: consensus.agreement,
       trend: trends.get(row.canonical_id) ?? [],
       recentPoints: history.slice(-6),
+      breakingNews: breakingFor(row, newsByPlayer),
       evidence: comp.evidence,
     });
   }
 
   return {
     players,
-    context: { season, week, priorWeight, missingProjections, games: gameRows },
+    context: {
+      season,
+      week,
+      generatedAt: now.toISOString(),
+      priorWeight,
+      missingProjections,
+      games: gameRows,
+    },
   };
+}
+
+/**
+ * Headlines about this player that postdate their stored injury note. A story older than
+ * the designation has already been reflected in it and would only be noise.
+ */
+function breakingFor(
+  row: PlayerRow,
+  byPlayer: ReadonlyMap<
+    string,
+    { title: string; impact: string; publishedAt: string; source: string }[]
+  >,
+): { title: string; impact: string; publishedAt: string; source: string }[] {
+  const items = byPlayer.get(row.canonical_id);
+  if (!items || items.length === 0) return [];
+  const knownAt = row.injury_updated_at ? Date.parse(row.injury_updated_at) : 0;
+  return items
+    .filter((i) => Date.parse(i.publishedAt) > knownAt)
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+    .slice(0, 3);
 }
 
 function trailingAverage(points: readonly number[]): number {
@@ -221,6 +279,24 @@ function round1(n: number): number {
 export function evaluationCaveats(result: EvaluationResult): string[] {
   const caveats: string[] = [];
   const { context, players } = result;
+
+  // First, because it is the most actionable thing here and the most likely to be acted
+  // on wrongly. Injury designations come from a daily sync; the news feed runs every
+  // fifteen minutes, so it sees a player ruled out hours before the field updates.
+  const breaking = players.filter((p) => p.breakingNews.length > 0);
+  for (const p of breaking) {
+    const item = p.breakingNews[0] as NewsHeadline;
+    const hours = Math.max(
+      0,
+      Math.round((Date.parse(context.generatedAt) - Date.parse(item.publishedAt)) / 360000) / 10,
+    );
+    caveats.push(
+      `BREAKING, ${hours}h ago: "${item.title}" (${item.source}). ${p.name} is still listed ` +
+        `${p.injury === "healthy" ? "healthy" : p.injury} here because injury designations ` +
+        "are synced daily, so this projection does not reflect that story. Check it before " +
+        "acting on the number.",
+    );
+  }
 
   if (context.priorWeight >= 0.999) {
     caveats.push(

@@ -59,11 +59,16 @@ function mapInjury(raw: string | null | undefined): string | null {
   return map[s] ?? "questionable";
 }
 
+/**
+ * Sleeper reports long-retired players as "Active" — Dominique Rodgers-Cromartie and
+ * Jason McCourty both came back that way. A player with no team cannot be rostered
+ * whatever the field says, so the team check comes first (DECISIONS D25).
+ */
 function mapStatus(raw: string | null | undefined, team: string | null): string {
   const s = (raw ?? "").trim().toLowerCase();
-  if (s === "active") return "active";
   if (s.includes("practice squad")) return "practice_squad";
   if (!team) return "free_agent";
+  if (s === "active") return "active";
   return "inactive";
 }
 

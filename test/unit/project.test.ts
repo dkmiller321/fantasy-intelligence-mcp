@@ -245,19 +245,27 @@ describe("confidence", () => {
 });
 
 describe("priorSeasonWeight", () => {
-  it("leans entirely on last season in week 1 and not at all from week 7", () => {
-    expect(priorSeasonWeight(1)).toBe(1);
-    expect(priorSeasonWeight(7)).toBe(0);
-    expect(priorSeasonWeight(12)).toBe(0);
+  // Shrinkage, not decay to zero. Fitted against 2024 and 2025: abandoning the prior at
+  // week 7 tested 7.1% worse overall, and 14-28% worse in the individual later weeks,
+  // because six games of points-allowed is a very noisy measurement (DECISIONS D24).
+  it("leans on last season before the current one has been played", () => {
+    expect(priorSeasonWeight(0)).toBe(1);
+    expect(priorSeasonWeight(1)).toBeCloseTo(9 / 10, 5);
   });
 
-  it("crosses roughly half way at week 4", () => {
-    expect(priorSeasonWeight(4)).toBeCloseTo(0.5, 5);
+  it("splits evenly once the current season reaches the regression constant", () => {
+    const k = CONFIG.priorSeasonBlend.regressionConstantGames;
+    expect(priorSeasonWeight(k)).toBeCloseTo(0.5, 5);
   });
 
-  it("decreases monotonically", () => {
-    for (let w = 1; w < 8; w++) {
-      expect(priorSeasonWeight(w)).toBeGreaterThanOrEqual(priorSeasonWeight(w + 1));
+  it("keeps some prior weight all season, because the sample never stops being noisy", () => {
+    expect(priorSeasonWeight(12)).toBeGreaterThan(0.3);
+    expect(priorSeasonWeight(18)).toBeGreaterThan(0.3);
+  });
+
+  it("decreases monotonically as games accumulate", () => {
+    for (let w = 1; w < 18; w++) {
+      expect(priorSeasonWeight(w)).toBeGreaterThan(priorSeasonWeight(w + 1));
     }
   });
 });
