@@ -2,6 +2,7 @@ import type { Evidence, InjuryStatus, Position } from "../domain/types";
 import { positionSigma as defaultSigma } from "../engine/aggregate";
 import { CONFIG } from "../engine/config";
 import { isAvailabilityNews } from "../engine/news";
+import { type DepthEntry, type Opportunity, roleOpportunity } from "../engine/opportunity";
 import {
   composite,
   confidence,
@@ -13,7 +14,13 @@ import {
   projectionRange,
   type SourceProjection,
 } from "../engine/project";
-import { AnalyticsRepo, type GameRow, indexDvp, indexGames } from "../storage/d1/analytics";
+import {
+  AnalyticsRepo,
+  type DepthRow,
+  type GameRow,
+  indexDvp,
+  indexGames,
+} from "../storage/d1/analytics";
 import { NewsRepo } from "../storage/d1/news";
 import type { PlayerRow } from "../storage/d1/players";
 
@@ -50,6 +57,8 @@ export interface EvaluatedPlayer {
    * (DECISIONS D25).
    */
   breakingNews: NewsHeadline[];
+  /** Whether the role has opened up: who is ahead, and who of them cannot play. */
+  opportunity: Opportunity;
   evidence: Evidence[];
 }
 
@@ -90,7 +99,7 @@ export async function evaluatePlayers(
   // without dragging in last week's noise.
   const newsSince = new Date(now.getTime() - 48 * 3600 * 1000).toISOString();
 
-  const [projections, dvpRows, gameRows, recent, trends, headlines] = await Promise.all([
+  const [projections, dvpRows, gameRows, recent, trends, headlines, depth] = await Promise.all([
     analytics.projections(ids, season, week),
     analytics.defenseVsPosition(season, week),
     analytics.games(season, week),
@@ -99,7 +108,30 @@ export async function evaluatePlayers(
     // Fetched as one indexed query and filtered in memory: a LIKE per player over the
     // whole table would not fit the request CPU budget.
     new NewsRepo(db).recent({ since: newsSince, minImpact: "high", limit: 60 }).catch(() => []),
+    analytics.depthContext(ids, season).catch(() => ({ mine: [], sameSpot: [] })),
   ]);
+
+  const toEntry = (r: DepthRow): DepthEntry => ({
+    canonicalId: r.player_id,
+    name: r.name,
+    posAbb: r.pos_abb,
+    posRank: r.pos_rank,
+    injury: (r.injury_status ?? "healthy") as InjuryStatus,
+  });
+  const myDepth = new Map(depth.mine.map((r) => [r.player_id, toEntry(r)]));
+  const spotIndex = new Map<string, DepthEntry[]>();
+  for (const r of depth.sameSpot) {
+    const key = `${r.team}|${r.pos_abb}`;
+    const list = spotIndex.get(key) ?? [];
+    list.push(toEntry(r));
+    spotIndex.set(key, list);
+  }
+  const opportunityFor = (canonicalId: string): Opportunity => {
+    const entry = myDepth.get(canonicalId) ?? null;
+    if (!entry) return roleOpportunity(null, []);
+    const row = depth.mine.find((r) => r.player_id === canonicalId);
+    return roleOpportunity(entry, spotIndex.get(`${row?.team}|${entry.posAbb}`) ?? [entry]);
+  };
 
   const newsByPlayer = new Map<string, NewsHeadline[]>();
   for (const item of headlines) {
@@ -172,6 +204,7 @@ export async function evaluatePlayers(
         trend: trends.get(row.canonical_id) ?? [],
         recentPoints: history.slice(-6),
         breakingNews: breakingFor(row, newsByPlayer),
+        opportunity: opportunityFor(row.canonical_id),
         evidence: [
           {
             factor: "no projection available",
@@ -230,6 +263,7 @@ export async function evaluatePlayers(
       trend: trends.get(row.canonical_id) ?? [],
       recentPoints: history.slice(-6),
       breakingNews: breakingFor(row, newsByPlayer),
+      opportunity: opportunityFor(row.canonical_id),
       evidence: comp.evidence,
     });
   }

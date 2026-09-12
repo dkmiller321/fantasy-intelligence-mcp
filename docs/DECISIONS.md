@@ -499,3 +499,32 @@ Two further narrowings, both about not crying wolf:
   states the headline, the designation the projection actually used, and the age of each,
   and leaves the judgement to the reader. Asserting a contradiction that does not exist is
   its own kind of wrong. The word "BREAKING" went too, for a story nearly a day old.
+
+## D27 — Opportunity means checking who is ahead, not inferring it from rank
+The waiver score's "opportunity" input was depth-chart rank: being listed first scored
+0.8, anything else 0.2. The comment in the code claimed this represented "a teammate
+injury or depth-chart change", and D21's note said rank 1 "usually means someone ahead of
+them is unavailable". Neither was true. It read the consequence and guessed the cause.
+
+Two things it got wrong. It credited every listed starter equally whether or not anything
+had changed, and — the real cost — it was blind to the case that matters most: the backup
+whose starter was ruled out an hour ago and who has not been re-ranked yet. That is the
+single most actionable signal on a waiver wire, and it was invisible.
+
+`roleOpportunity` now joins the published depth chart against injury designations and asks
+the actual question: who is listed ahead of this player at their spot, and can they play?
+Effective rank is computed with the unavailable removed, scoring 1.0 for a listed starter,
+0.95 for a player everyone ahead of whom is out, 0.45 one body away, and 0.15 otherwise.
+
+The explanation is the point as much as the score. Verified against live data:
+
+> Kei'Trel Clark, DB ARI: "moved up at DB with Garrett Williams out, but still behind
+> Max Melton"
+
+A cruder version would have reported the starter being out as a reason to bid. Naming the
+player still in the way is what makes it worth reading, and the same structure produces
+"in line to start at RB with X (out) unavailable" when the path is genuinely clear.
+
+This feeds `evaluatePlayers`, so it reaches start/sit and lineup answers too, not only
+waivers: "the player ahead of him is out" is context for whether to start someone, not
+just whether to add them.

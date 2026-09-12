@@ -3,6 +3,7 @@ import { z } from "zod";
 import { roundPoints } from "../../domain/envelope";
 import type { NewsImpact, Position } from "../../domain/types";
 import { optimizeLineup } from "../../engine/lineup";
+import { describeOpportunity } from "../../engine/opportunity";
 import { canFill } from "../../engine/slots";
 import { evaluateTrade, scoreWaiver, type TradeAsset, valueAsset } from "../../engine/trade";
 import { syncLeague } from "../../jobs/sync-league";
@@ -51,26 +52,6 @@ const REPLACEMENT_FLOOR: Record<string, number> = {
   LB: 5,
   DB: 4,
 };
-
-/**
- * Depth-chart rank as an opportunity score. A published starter is the strong signal; the
- * immediate backup still matters because one injury promotes them. Beyond that the rank
- * says little a projection does not already capture.
- */
-function opportunityFor(publishedRank: number | null, sleeperOrder: number | null): number {
-  if (publishedRank !== null) {
-    if (publishedRank === 1) return 1;
-    if (publishedRank === 2) return 0.5;
-    return 0.15;
-  }
-  // No published entry: fall back to Sleeper's ordering, which is coarser.
-  return sleeperOrder === 1 ? 0.6 : 0.2;
-}
-
-function ordinal(n: number): string {
-  const suffix = n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th";
-  return `${n}${suffix}`;
-}
 
 export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
@@ -244,24 +225,6 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
 
       const result = await evaluatePlayers(ctx.env.DB, available.slice(0, 120), season, week);
 
-      // Real depth-chart rank, published by the teams, rather than Sleeper's
-      // depth_chart_order proxy (DECISIONS D21). Rank 1 at a position means the player
-      // ahead of them is unavailable, which is the actual reason a free agent matters.
-      const depthRank = new Map<string, { rank: number; posAbb: string }>();
-      const candidateIds = result.players.map((p) => p.canonicalId).slice(0, 120);
-      if (candidateIds.length > 0) {
-        const marks = candidateIds.map(() => "?").join(",");
-        const depth = await ctx.env.DB.prepare(
-          `SELECT player_id, pos_abb, MIN(pos_rank) AS pos_rank FROM depth_charts
-           WHERE season = ? AND player_id IN (${marks}) GROUP BY player_id`,
-        )
-          .bind(season, ...candidateIds)
-          .all<{ player_id: string; pos_abb: string; pos_rank: number }>();
-        for (const d of depth.results) {
-          depthRank.set(d.player_id, { rank: d.pos_rank, posAbb: d.pos_abb });
-        }
-      }
-
       /**
        * Value is measured against the owner's own lineup, not against the whole player
        * pool. Ranking by raw projection returns six quarterbacks, because quarterbacks
@@ -321,31 +284,30 @@ export function registerMarketTools(server: McpServer, ctx: ToolContext): void {
               position: p.position,
               rosValue,
               usageTrend: usage,
-              opportunity: opportunityFor(
-                depthRank.get(p.canonicalId)?.rank ?? null,
-                row?.depth_chart_order ?? null,
-              ),
+              // Whether anyone ahead of them is actually unavailable, rather than
+              // inferring it from depth-chart rank alone (DECISIONS D27).
+              opportunity: p.opportunity.score,
               trendingAdds: adds,
             },
             maxAdds,
           );
 
           const why: string[] = [];
+          // First, because it is the reason to bid and the reason to bid now.
+          if (p.opportunity.openedBy.length > 0 && p.opportunity.effectiveRank === 1) {
+            why.push(
+              `role just opened: ${p.opportunity.openedBy
+                .map((o) => `${o.name} is ${o.injury}`)
+                .join(", ")}`,
+            );
+          }
           if (upgrade > 0) {
             why.push(`${roundPoints(upgrade)} points better than your weakest eligible starter`);
           }
           if (adds > 0) why.push(`${adds} adds across Sleeper in the last day`);
           if (pointsTrend?.label === "rising") why.push("scoring trending up");
-          const depth = depthRank.get(p.canonicalId);
-          if (depth) {
-            why.push(
-              depth.rank === 1
-                ? `starting at ${depth.posAbb} on the published depth chart`
-                : `${ordinal(depth.rank)} at ${depth.posAbb}`,
-            );
-          } else if (row?.depth_chart_order === 1) {
-            why.push("listed first on the depth chart");
-          }
+          const role = describeOpportunity(p.opportunity, p.position);
+          if (role) why.push(role);
           if (p.matchupRank !== null && p.matchupRank <= 8) {
             why.push(`favourable matchup vs ${p.opponent}`);
           }

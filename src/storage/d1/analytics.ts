@@ -40,6 +40,15 @@ export interface GameRow {
   precip_prob: number | null;
 }
 
+export interface DepthRow {
+  player_id: string;
+  team: string;
+  pos_abb: string;
+  pos_rank: number;
+  name: string;
+  injury_status: string | null;
+}
+
 const CHUNK = 90;
 
 function chunks<T>(xs: readonly T[], size = CHUNK): T[][] {
@@ -141,6 +150,54 @@ export class AnalyticsRepo {
       }
     }
     return out;
+  }
+
+  /**
+   * Depth-chart context for a set of players: where each sits at their spot, and who else
+   * is listed there with what injury designation.
+   *
+   * Two steps rather than pulling the whole chart. Fetching every entry for a season is
+   * nine thousand rows; this asks which spots the players actually occupy, then only the
+   * teammates at those spots.
+   */
+  async depthContext(
+    playerIds: readonly string[],
+    season: number,
+  ): Promise<{ mine: DepthRow[]; sameSpot: DepthRow[] }> {
+    if (playerIds.length === 0) return { mine: [], sameSpot: [] };
+
+    const mine: DepthRow[] = [];
+    for (const chunk of chunks(playerIds)) {
+      const marks = chunk.map(() => "?").join(",");
+      const res = await this.db
+        .prepare(
+          `SELECT d.player_id, d.team, d.pos_abb, d.pos_rank, p.name, p.injury_status
+           FROM depth_charts d JOIN players p ON p.canonical_id = d.player_id
+           WHERE d.season = ? AND d.player_id IN (${marks})`,
+        )
+        .bind(season, ...chunk)
+        .all<DepthRow>();
+      mine.push(...res.results);
+    }
+    if (mine.length === 0) return { mine: [], sameSpot: [] };
+
+    const teams = [...new Set(mine.map((r) => r.team))];
+    const spots = [...new Set(mine.map((r) => r.pos_abb))];
+    const sameSpot: DepthRow[] = [];
+    for (const teamChunk of chunks(teams, 40)) {
+      const tMarks = teamChunk.map(() => "?").join(",");
+      const sMarks = spots.map(() => "?").join(",");
+      const res = await this.db
+        .prepare(
+          `SELECT d.player_id, d.team, d.pos_abb, d.pos_rank, p.name, p.injury_status
+           FROM depth_charts d JOIN players p ON p.canonical_id = d.player_id
+           WHERE d.season = ? AND d.team IN (${tMarks}) AND d.pos_abb IN (${sMarks})`,
+        )
+        .bind(season, ...teamChunk, ...spots)
+        .all<DepthRow>();
+      sameSpot.push(...res.results);
+    }
+    return { mine, sameSpot };
   }
 
   async usageTrends(

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { roundPoints } from "../../domain/envelope";
 import type { Evidence } from "../../domain/types";
 import { type LineupCandidate, lineupDelta, optimizeLineup } from "../../engine/lineup";
+import { describeOpportunity } from "../../engine/opportunity";
 import { syncLeague } from "../../jobs/sync-league";
 import type { PlayerRow } from "../../storage/d1/players";
 import { resolveLeagueId, resolveSeasonWeek, sleeperUserId, type ToolContext } from "../context";
@@ -30,6 +31,9 @@ function brief(p: EvaluatedPlayer) {
     injury: p.injury === "healthy" ? null : p.injury,
     // Surfaced on the player, not just in caveats, so it survives any summarising.
     breakingNews: p.breakingNews.length > 0 ? p.breakingNews : null,
+    // Role context: who is ahead of them and whether those players can actually play.
+    role: describeOpportunity(p.opportunity, p.position),
+    roleOpenedBy: p.opportunity.openedBy.length > 0 ? p.opportunity.openedBy : null,
     eligible: p.eligible,
     trend: p.trend.find((t) => t.metric === "points")?.label ?? null,
   };
