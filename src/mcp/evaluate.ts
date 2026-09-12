@@ -1,6 +1,7 @@
 import type { Evidence, InjuryStatus, Position } from "../domain/types";
 import { positionSigma as defaultSigma } from "../engine/aggregate";
 import { CONFIG } from "../engine/config";
+import { isAvailabilityNews } from "../engine/news";
 import {
   composite,
   confidence,
@@ -260,10 +261,16 @@ function breakingFor(
   const items = byPlayer.get(row.canonical_id);
   if (!items || items.length === 0) return [];
   const knownAt = row.injury_updated_at ? Date.parse(row.injury_updated_at) : 0;
-  return items
-    .filter((i) => Date.parse(i.publishedAt) > knownAt)
-    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
-    .slice(0, 3);
+  return (
+    items
+      .filter((i) => Date.parse(i.publishedAt) > knownAt)
+      // Availability only, not merely high impact. A headline can carry a player's name as
+      // a modifier rather than a subject, and a false alarm here teaches the reader to
+      // ignore the real ones (DECISIONS D26).
+      .filter((i) => isAvailabilityNews(i.title, null))
+      .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+      .slice(0, 3)
+  );
 }
 
 function trailingAverage(points: readonly number[]): number {
@@ -283,18 +290,24 @@ export function evaluationCaveats(result: EvaluationResult): string[] {
   // First, because it is the most actionable thing here and the most likely to be acted
   // on wrongly. Injury designations come from a daily sync; the news feed runs every
   // fifteen minutes, so it sees a player ruled out hours before the field updates.
-  const breaking = players.filter((p) => p.breakingNews.length > 0);
+  // Only where it would change something. A player already designated out is excluded by
+  // the injury gate, so repeating the news adds noise to an answer that is already right.
+  const breaking = players.filter((p) => p.breakingNews.length > 0 && p.eligible);
   for (const p of breaking) {
     const item = p.breakingNews[0] as NewsHeadline;
-    const hours = Math.max(
-      0,
-      Math.round((Date.parse(context.generatedAt) - Date.parse(item.publishedAt)) / 360000) / 10,
-    );
+    const ageH =
+      Math.max(
+        0,
+        Math.round((Date.parse(context.generatedAt) - Date.parse(item.publishedAt)) / 360000),
+      ) / 10;
+    const designation = p.injury === "healthy" ? "no injury designation" : `listed ${p.injury}`;
+    // Worded so it holds whether or not the designation already agrees with the story:
+    // asserting a contradiction that does not exist is its own kind of wrong.
     caveats.push(
-      `BREAKING, ${hours}h ago: "${item.title}" (${item.source}). ${p.name} is still listed ` +
-        `${p.injury === "healthy" ? "healthy" : p.injury} here because injury designations ` +
-        "are synced daily, so this projection does not reflect that story. Check it before " +
-        "acting on the number.",
+      `Availability news ${ageH}h ago on ${p.name}: "${item.title}" (${item.source}). ` +
+        `This projection used the stored designation, which is ${designation}. If the ` +
+        "story supersedes that, the number below is stale; injury designations sync on a " +
+        "schedule and the newswire is faster.",
     );
   }
 

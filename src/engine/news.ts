@@ -48,6 +48,81 @@ const MEDIUM = [
   "practice squad",
 ];
 
+/**
+ * Does this headline say whether the player will be on the field?
+ *
+ * Narrower than `classifyImpact`, and deliberately so. Impact answers "is this worth
+ * reading"; this answers "should a lineup decision be revisited right now", which is a
+ * much stronger claim and the only thing worth interrupting an answer for.
+ *
+ * Trades and signings are excluded even though they are high impact, because a headline
+ * can mention a player's name as a modifier rather than a subject — "After arriving in
+ * the David Montgomery trade, Juice Scruggs is the starting center" is about Scruggs, and
+ * raised a false alarm on Montgomery before this existed (DECISIONS D26).
+ */
+const AVAILABILITY = [
+  "ruled out",
+  // Present tense too: "Ravens rule out LB Teddye Buchanan" is the same news.
+  "rule out",
+  "rules out",
+  "will miss",
+  "miss time",
+  "expected to miss",
+  // Practice participation, which is how Wednesday and Thursday reports read.
+  "limited in practice",
+  "did not practice",
+  "listed as limited",
+  "list ",
+  "will not play",
+  "won't play",
+  "wont play",
+  "inactive",
+  // In an NFL headline this word is almost always about availability.
+  "injury",
+  "injuries",
+  // Positive availability is worth knowing too: a questionable player confirming.
+  "full go",
+  "ready to go",
+  "doubtful",
+  "questionable",
+  "injured reserve",
+  "placed on ir",
+  "to ir",
+  "headed to ir",
+  "pup list",
+  "surgery",
+  "torn",
+  "acl",
+  "achilles",
+  "fractured",
+  "broken",
+  "suspended",
+  "suspension",
+  "carted off",
+  "left the game",
+  "exited",
+  "released",
+  "waived",
+  "activated",
+  "cleared to play",
+  "expected to play",
+  "game-time decision",
+];
+
+/**
+ * "out" needs a word boundary rather than a substring: it appears as a standalone word in
+ * "Tagovailoa out, Rush to start" and as part of "throughout" or "outlook" otherwise.
+ */
+const AVAILABILITY_PATTERNS = [/\bout\b/, /\brule[sd]?\s+out\b/, /\bactivated?\b/];
+
+export function isAvailabilityNews(title: string, _description: string | null): boolean {
+  // The headline alone. A name buried in body text is usually incidental, and matching on
+  // it is how the false alarms happen.
+  const text = title.toLowerCase();
+  if (AVAILABILITY.some((k) => text.includes(k))) return true;
+  return AVAILABILITY_PATTERNS.some((re) => re.test(text));
+}
+
 export function classifyImpact(title: string, description: string | null): NewsImpact {
   const text = `${title} ${description ?? ""}`.toLowerCase();
   if (HIGH.some((k) => text.includes(k))) return "high";

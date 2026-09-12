@@ -466,3 +466,36 @@ A player with no team cannot be rostered whatever the status field says, so the 
 now comes first, and search ranks rosterable players ahead of name-match quality rather
 than after it. Active is now 1,951, and the same search returns ten players who are all on
 NFL rosters.
+
+## D26 — An availability alert is a narrower claim than "high impact"
+The first version of the breaking-news caveat fired on any high-impact headline mentioning
+a player. Tested against real data it immediately produced a false alarm:
+
+> "After arriving in the David Montgomery trade, Juice Scruggs is Lions' starting center"
+
+That story is about Scruggs. Montgomery appears as a modifier, and the word "trade" tripped
+the impact classifier. The caveat then told the reader to re-check Montgomery's status
+before trusting his projection, which was wrong and, worse, is the kind of wrong that
+teaches people to ignore the alerts that matter.
+
+So availability is now a separate, narrower predicate than impact. Impact answers "is this
+worth reading" and still governs `get_news`; availability answers "should a lineup decision
+be revisited", and only that interrupts an answer. Trades and signings are deliberately
+excluded despite being high impact, precisely because a name can appear in them as a
+modifier.
+
+Measured against 59 stored headlines, the predicate cleanly separates
+"Ravens rule out LB Teddye Buchanan", "Cowboys RB Davis (hip) out for opener" and
+"Giants list Malik Nabers as questionable" from coach features, game previews and score
+predictions, and it excludes the Montgomery headline that started this.
+
+Two further narrowings, both about not crying wolf:
+
+- **Only when it would change something.** A player already designated out is excluded by
+  the injury gate, so repeating the news adds noise to an answer that is already correct.
+- **Wording that holds either way.** The first draft asserted "this projection does not
+  reflect that story", which is false when the designation already agrees — as it did for
+  Alvin Kamara, where both the headline and the stored field said questionable. It now
+  states the headline, the designation the projection actually used, and the age of each,
+  and leaves the judgement to the reader. Asserting a contradiction that does not exist is
+  its own kind of wrong. The word "BREAKING" went too, for a story nearly a day old.
