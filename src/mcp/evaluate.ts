@@ -1,6 +1,13 @@
 import type { Evidence, InjuryStatus, Position } from "../domain/types";
 import { positionSigma as defaultSigma } from "../engine/aggregate";
 import { CONFIG } from "../engine/config";
+import { type GameScript, gameScript } from "../engine/gamescript";
+import {
+  type ScoringHistory,
+  scoringHistory,
+  type UsageDivergence,
+  usageDivergence,
+} from "../engine/history";
 import { hasKickedOff } from "../engine/kickoff";
 import { isAvailabilityNews } from "../engine/news";
 import { type DepthEntry, type Opportunity, roleOpportunity } from "../engine/opportunity";
@@ -62,6 +69,12 @@ export interface EvaluatedPlayer {
   breakingNews: NewsHeadline[];
   /** Whether the role has opened up: who is ahead, and who of them cannot play. */
   opportunity: Opportunity;
+  /** What the betting line implies about how the game will be played. */
+  script: GameScript;
+  /** What the player has actually scored, as distinct from what is projected. */
+  history: ScoringHistory;
+  /** Whether opportunity and output currently agree. */
+  divergence: UsageDivergence;
   evidence: Evidence[];
 }
 
@@ -158,6 +171,24 @@ export async function evaluatePlayers(
     ? Math.sqrt(totals.reduce((a, b) => a + (b - totalMean) ** 2, 0) / totals.length)
     : 0;
 
+  // Mean posted total across the week, so "high scoring" is relative to this slate.
+  const postedTotals = gameRows.map((g) => g.total).filter((t): t is number => t !== null);
+  const slateTotalMean = postedTotals.length
+    ? postedTotals.reduce((a, b) => a + b, 0) / postedTotals.length
+    : 0;
+
+  const scriptFor = (
+    position: Position,
+    slate: ReturnType<typeof indexGames> extends Map<string, infer V> ? V | undefined : never,
+  ) =>
+    gameScript(position, {
+      homeSpread: slate?.game.spread ?? null,
+      total: slate?.game.total ?? null,
+      impliedTeamTotal: slate?.impliedTotal ?? null,
+      isHome: slate?.isHome ?? false,
+      slateMeanTotal: slateTotalMean,
+    });
+
   const missingProjections: string[] = [];
   const players: EvaluatedPlayer[] = [];
 
@@ -209,6 +240,9 @@ export async function evaluatePlayers(
         recentPoints: history.slice(-6),
         breakingNews: breakingFor(row, newsByPlayer),
         opportunity: opportunityFor(row.canonical_id),
+        script: scriptFor(position, slate),
+        history: scoringHistory(history, null, row.name),
+        divergence: divergenceFor(trends.get(row.canonical_id) ?? [], row.name),
         evidence: [
           {
             factor: "no projection available",
@@ -269,6 +303,9 @@ export async function evaluatePlayers(
       recentPoints: history.slice(-6),
       breakingNews: breakingFor(row, newsByPlayer),
       opportunity: opportunityFor(row.canonical_id),
+      script: scriptFor(position, slate),
+      history: scoringHistory(history, comp.points, row.name),
+      divergence: divergenceFor(trends.get(row.canonical_id) ?? [], row.name),
       evidence: comp.evidence,
     });
   }
@@ -310,6 +347,16 @@ function breakingFor(
       .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
       .slice(0, 3)
   );
+}
+
+/** Pull the two trends divergence cares about out of the stored list. */
+function divergenceFor(
+  trend: readonly { metric: string; label: string; delta: number }[],
+  name: string,
+): UsageDivergence {
+  const snaps = trend.find((t) => t.metric === "snap_share") ?? null;
+  const points = trend.find((t) => t.metric === "points") ?? null;
+  return usageDivergence(snaps, points, name);
 }
 
 function trailingAverage(points: readonly number[]): number {

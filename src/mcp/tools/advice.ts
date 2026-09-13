@@ -34,6 +34,15 @@ function brief(p: EvaluatedPlayer) {
     // Role context: who is ahead of them and whether those players can actually play.
     role: describeOpportunity(p.opportunity, p.position),
     roleOpenedBy: p.opportunity.openedBy.length > 0 ? p.opportunity.openedBy : null,
+    // The parts a projection cannot tell you: what he has actually done, how the game is
+    // likely to be played, and whether usage and output currently disagree.
+    history: p.history.summary,
+    consistency: p.history.label,
+    actualScores: p.history.scores.length > 0 ? p.history.scores.map(roundPoints) : null,
+    hitRate: p.history.hitRate === null ? null : Math.round(p.history.hitRate * 100),
+    gameScript: p.script.label,
+    scriptImplication: p.script.implication,
+    edge: p.divergence.note,
     eligible: p.eligible,
     trend: p.trend.find((t) => t.metric === "points")?.label ?? null,
   };
@@ -122,9 +131,62 @@ export function registerAdviceTools(server: McpServer, ctx: ToolContext): void {
         ...e,
         factor: `${leader.name}: ${e.factor}`,
       }));
+      for (const p of ranked) {
+        if (p.script.label && p.script.implication) {
+          evidence.push({
+            factor: `${p.name}: game script`,
+            value: p.script.label,
+            effect: "0",
+            note: p.script.implication,
+          });
+        }
+        if (p.history.summary && p.history.hitRate !== null) {
+          evidence.push({
+            factor: `${p.name}: actual scoring`,
+            value: `${Math.round(p.history.hitRate * 100)}% hit rate`,
+            effect: p.history.hitRate >= 0.5 ? "+" : "-",
+            note: p.history.summary,
+          });
+        }
+      }
       if (runnerUp) {
         for (const e of runnerUp.evidence) {
           evidence.push({ ...e, factor: `${runnerUp.name}: ${e.factor}` });
+        }
+      }
+
+      // Anything the projections do not already say. This is the reason to ask rather than
+      // just sorting Sleeper's numbers, so it leads (DECISIONS D29).
+      const nonObvious: string[] = [];
+      for (const p of ranked) {
+        if (p.divergence.note) nonObvious.push(p.divergence.note);
+        if (p.opportunity.openedBy.length > 0 && p.opportunity.effectiveRank === 1) {
+          nonObvious.push(
+            `${p.name} is in line to start with ${p.opportunity.openedBy.map((o) => o.name).join(" and ")} out.`,
+          );
+        }
+        // The projection disagreeing with the player's own game log is the single most
+        // checkable reason to doubt it, and it is invisible unless someone compares them.
+        if (p.history.games >= 4 && p.points !== null && p.history.median > 0 && p.eligible) {
+          const ratio = p.points / p.history.median;
+          if (ratio <= 0.7) {
+            nonObvious.push(
+              `${p.name} is projected ${roundPoints(p.points)} but his median over his last ` +
+                `${p.history.games} games is ${p.history.median}. The sources are pricing in ` +
+                "something the game log does not show; worth checking why before sitting him.",
+            );
+          } else if (ratio >= 1.4) {
+            nonObvious.push(
+              `${p.name} is projected ${roundPoints(p.points)} against a median of ` +
+                `${p.history.median} over his last ${p.history.games} games. The projection is ` +
+                "ahead of anything he has actually done recently.",
+            );
+          }
+        }
+        if (p.history.label === "boom or bust" && p.eligible) {
+          nonObvious.push(
+            `${p.name} is boom or bust; his median understates the good weeks and overstates the bad.`,
+          );
         }
       }
 
@@ -148,6 +210,9 @@ export function registerAdviceTools(server: McpServer, ctx: ToolContext): void {
           data: {
             lean: leader.eligible ? leader.name : null,
             margin,
+            // Surfaced separately so it survives any summarising: these are the points a
+            // reader could not have got from the projection alone.
+            beyondTheProjection: nonObvious.length > 0 ? nonObvious : null,
             players: ranked.map(brief),
           },
           season,
