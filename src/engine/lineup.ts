@@ -8,6 +8,10 @@ export interface LineupCandidate {
   fantasyPositions: Position[];
   points: number | null;
   eligible: boolean;
+  /** Their game has kicked off, so this slot can no longer be changed. */
+  locked?: boolean;
+  /** They are in the lineup currently set on Sleeper. */
+  alreadyStarting?: boolean;
 }
 
 export interface SlotAssignment {
@@ -16,6 +20,8 @@ export interface SlotAssignment {
   runnerUp: LineupCandidate | null;
   /** Points the starter beats the best remaining alternative by. */
   margin: number | null;
+  /** The game has started; whatever is here is what it is.  */
+  locked: boolean;
 }
 
 export interface LineupResult {
@@ -42,11 +48,26 @@ export function optimizeLineup(
   const starting = rosterPositions.filter((s) => !["BN", "TAXI", "IR"].includes(s.toUpperCase()));
   const order = slotsByScarcity(starting);
 
-  const available = candidates.filter((c) => c.eligible && c.points !== null);
   const used = new Set<string>();
   const bySlot = new Map<string, SlotAssignment>();
 
+  // A player whose game has kicked off cannot be moved. One already in the lineup keeps
+  // their slot and their points; one on the bench can no longer be started at all, so
+  // recommending them would be advice that cannot be taken (DECISIONS D28).
+  const lockedStarters = candidates.filter((c) => c.locked && c.alreadyStarting);
+  const available = candidates.filter((c) => c.eligible && c.points !== null && !c.locked);
+
   for (const slot of order) {
+    const pinned = lockedStarters.find(
+      (c) => !used.has(c.canonicalId) && canFill(slot, c.fantasyPositions),
+    );
+    if (pinned) {
+      used.add(pinned.canonicalId);
+      const key = `${slot}#${[...bySlot.keys()].filter((k) => k.startsWith(`${slot}#`)).length}`;
+      bySlot.set(key, { slot, player: pinned, runnerUp: null, margin: null, locked: true });
+      continue;
+    }
+
     const pool = available
       .filter((c) => !used.has(c.canonicalId) && canFill(slot, c.fantasyPositions))
       .sort((a, b) => (b.points as number) - (a.points as number));
@@ -65,6 +86,7 @@ export function optimizeLineup(
         pick && next && pick.points !== null && next.points !== null
           ? Math.round((pick.points - next.points) * 10) / 10
           : null,
+      locked: false,
     });
   }
 

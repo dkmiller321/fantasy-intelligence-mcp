@@ -93,6 +93,36 @@ describe("optimizeLineup", () => {
     expect(out.assignments[0]?.player?.name).toBe("RB2");
   });
 
+  it("pins a locked player who was already starting, and does not rank them", () => {
+    const played = { ...p("Stafford", "QB", 22), locked: true, alreadyStarting: true };
+    const out = optimizeLineup(["QB"], [played, p("Murray", "QB", 25)]);
+    const qb = out.assignments[0];
+    // Murray projects higher but the slot is gone; the game has been played.
+    expect(qb?.player?.name).toBe("Stafford");
+    expect(qb?.locked).toBe(true);
+    expect(qb?.runnerUp).toBeNull();
+    expect(qb?.margin).toBeNull();
+  });
+
+  it("never starts a locked player who was on the bench", () => {
+    const played = { ...p("Corum", "RB", 30), locked: true, alreadyStarting: false };
+    const out = optimizeLineup(["RB"], [played, p("Active", "RB", 8)]);
+    // Recommending Corum would be advice that cannot be taken.
+    expect(out.assignments[0]?.player?.name).toBe("Active");
+    expect(out.bench.map((b) => b.name)).toContain("Corum");
+  });
+
+  it("optimises the slots that are still open around the locked ones", () => {
+    const played = { ...p("Stafford", "QB", 22), locked: true, alreadyStarting: true };
+    const out = optimizeLineup(
+      ["QB", "RB"],
+      [played, p("Murray", "QB", 25), p("RB1", "RB", 14), p("RB2", "RB", 9)],
+    );
+    expect(out.assignments[0]?.player?.name).toBe("Stafford");
+    expect(out.assignments[1]?.player?.name).toBe("RB1");
+    expect(out.assignments[1]?.locked).toBe(false);
+  });
+
   it("returns assignments in roster order, not solve order", () => {
     const slots = ["FLEX", "QB", "RB"];
     const out = optimizeLineup(slots, [p("QB1", "QB", 20), p("RB1", "RB", 15), p("RB2", "RB", 10)]);

@@ -209,6 +209,13 @@ export function registerAdviceTools(server: McpServer, ctx: ToolContext): void {
       const result = await evaluatePlayers(ctx.env.DB, roster.rows, season, week);
       const byId = new Map(result.players.map((p) => [p.canonicalId, p]));
 
+      const currentlyStarting = new Set(
+        roster.starters
+          .filter((id) => id && id !== "0")
+          .map((id) => roster.bySleeper.get(id)?.canonical_id)
+          .filter((x): x is string => !!x),
+      );
+
       const candidates: LineupCandidate[] = result.players.map((p) => ({
         canonicalId: p.canonicalId,
         name: p.name,
@@ -216,16 +223,13 @@ export function registerAdviceTools(server: McpServer, ctx: ToolContext): void {
         fantasyPositions: p.fantasyPositions,
         points: p.points,
         eligible: p.eligible,
+        locked: p.locked,
+        alreadyStarting: currentlyStarting.has(p.canonicalId),
       }));
 
       const lineup = optimizeLineup(roster.rosterPositions, candidates);
 
-      // Current starters are Sleeper ids; map them to canonical for comparison.
-      const currentCanonical = roster.starters
-        .filter((id) => id && id !== "0")
-        .map((id) => roster.bySleeper.get(id)?.canonical_id)
-        .filter((x): x is string => !!x);
-      const delta = lineupDelta(currentCanonical, lineup);
+      const delta = lineupDelta([...currentlyStarting], lineup);
 
       const slots = lineup.assignments.map((a) => {
         const p = a.player ? byId.get(a.player.canonicalId) : null;
@@ -238,7 +242,9 @@ export function registerAdviceTools(server: McpServer, ctx: ToolContext): void {
           matchupRank: p?.matchupRank ?? null,
           runnerUp: a.runnerUp?.name ?? null,
           margin: a.margin,
-          closeCall: a.margin !== null && a.margin < 1.5,
+          closeCall: !a.locked && a.margin !== null && a.margin < 1.5,
+          // Already played: whatever is in this slot is final.
+          locked: a.locked,
         };
       });
 
@@ -263,6 +269,26 @@ export function registerAdviceTools(server: McpServer, ctx: ToolContext): void {
       const changeCount = changes.start.length;
 
       const caveats = evaluationCaveats(result);
+
+      const lockedSlots = lineup.assignments.filter((a) => a.locked);
+      const missedOnBench = result.players.filter(
+        (p) => p.locked && !currentlyStarting.has(p.canonicalId) && (p.points ?? 0) > 0,
+      );
+      if (lockedSlots.length > 0) {
+        caveats.push(
+          `${lockedSlots.length} slots are already locked because those games have ` +
+            `kicked off: ${lockedSlots.map((a) => a.player?.name).join(", ")}. Those cannot ` +
+            "be changed, and their numbers are projections rather than what was actually scored.",
+        );
+      }
+      if (missedOnBench.length > 0) {
+        caveats.push(
+          `${missedOnBench.map((p) => p.name).join(", ")} ` +
+            `${missedOnBench.length === 1 ? "has" : "have"} already played and ` +
+            `${missedOnBench.length === 1 ? "was" : "were"} not in the lineup, so ` +
+            `${missedOnBench.length === 1 ? "that slot is" : "those slots are"} gone for this week.`,
+        );
+      }
       if (lineup.unfilledSlots.length > 0) {
         caveats.push(
           `No eligible player available for: ${lineup.unfilledSlots.join(", ")}. ` +

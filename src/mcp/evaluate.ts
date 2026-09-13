@@ -1,6 +1,7 @@
 import type { Evidence, InjuryStatus, Position } from "../domain/types";
 import { positionSigma as defaultSigma } from "../engine/aggregate";
 import { CONFIG } from "../engine/config";
+import { hasKickedOff } from "../engine/kickoff";
 import { isAvailabilityNews } from "../engine/news";
 import { type DepthEntry, type Opportunity, roleOpportunity } from "../engine/opportunity";
 import {
@@ -45,6 +46,8 @@ export interface EvaluatedPlayer {
   impliedTeamTotal: number | null;
   roof: string | null;
   kickoff: string | null;
+  /** Their game has kicked off; this slot can no longer be changed. */
+  locked: boolean;
   eligible: boolean;
   sources: string[];
   sourceAgreement: number;
@@ -198,6 +201,7 @@ export async function evaluatePlayers(
         impliedTeamTotal: slate?.impliedTotal ?? null,
         roof: slate?.game.roof ?? null,
         kickoff: slate?.game.kickoff ?? null,
+        locked: hasKickedOff(slate?.game.kickoff ?? null, now),
         eligible: !isExcludedByInjury(injury),
         sources: [],
         sourceAgreement: 0,
@@ -257,6 +261,7 @@ export async function evaluatePlayers(
       impliedTeamTotal: slate?.impliedTotal ?? null,
       roof: slate?.game.roof ?? null,
       kickoff: slate?.game.kickoff ?? null,
+      locked: hasKickedOff(slate?.game.kickoff ?? null, now),
       eligible: injuryMultiplier(injury) > 0,
       sources: consensus.sources,
       sourceAgreement: consensus.agreement,
